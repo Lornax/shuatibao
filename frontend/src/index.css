@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    font-family: 'PingFang SC', 'Noto Sans SC', sans-serif;
+    color: #1a1a1a;
+    background: #fafaf6;
+    -webkit-font-smoothing: antialiased;
+  }
+}
