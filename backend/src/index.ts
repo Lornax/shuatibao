@@ -6,6 +6,7 @@ import { auth } from './middleware/auth.js';
 import type { AuthVars } from './middleware/auth.js';
 import { profilesRouter } from './routes/profiles.js';
 import { questionsRouter } from './routes/questions.js';
+import { attemptsRouter } from './routes/attempts.js';
 
 const app = new Hono<{ Variables: AuthVars }>();
 
@@ -17,6 +18,7 @@ app.get('/api/me', (c) => c.json({ userId: c.get('userId') }));
 
 app.route('/api/profiles', profilesRouter);
 app.route('/api', questionsRouter);
+app.route('/api', attemptsRouter);
 
 if (process.env.NODE_ENV !== 'test' && import.meta.url === `file://${process.argv[1]}`) {
   serve({ fetch: app.fetch, port: config.PORT }, (info) => {
