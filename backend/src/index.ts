@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { auth } from './middleware/auth.js';
 import type { AuthVars } from './middleware/auth.js';
 import { profilesRouter } from './routes/profiles.js';
+import { questionsRouter } from './routes/questions.js';
 
 const app = new Hono<{ Variables: AuthVars }>();
 
@@ -15,6 +16,7 @@ app.get('/health', (c) => c.json({ ok: true, version: '0.0.1' }));
 app.get('/api/me', (c) => c.json({ userId: c.get('userId') }));
 
 app.route('/api/profiles', profilesRouter);
+app.route('/api', questionsRouter);
 
 if (process.env.NODE_ENV !== 'test' && import.meta.url === `file://${process.argv[1]}`) {
   serve({ fetch: app.fetch, port: config.PORT }, (info) => {
