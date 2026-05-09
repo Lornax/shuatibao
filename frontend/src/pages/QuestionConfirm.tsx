@@ -76,11 +76,12 @@ function ConfirmOne({
     return arr;
   });
   const KEYS = ['A', 'B', 'C', 'D'] as const;
-  const [answer, setAnswer] = useState<string>(candidate.answer);
+  const [answer, setAnswer] = useState<string>(candidate.answer || '');
   const [explanation, setExplanation] = useState(candidate.explanation || '');
   const [difficulty, setDifficulty] = useState(candidate.difficulty);
   const [tagInput, setTagInput] = useState(candidate.tags.join(', '));
   const [submitting, setSubmitting] = useState(false);
+  const [solving, setSolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [similar, setSimilar] = useState<SimilarQuestion[] | null>(null);
 
@@ -88,10 +89,28 @@ function ConfirmOne({
     setOptionTexts((prev) => prev.map((t, idx) => (idx === i ? text : t)));
   }
 
+  async function solveByAI() {
+    const opts = KEYS.map((k, i) => ({ key: k, text: optionTexts[i].trim() })).filter((o) => o.text);
+    if (!stem.trim()) return setError('要先填好题干');
+    if (opts.length < 2) return setError('要先填好至少 2 个选项');
+    setSolving(true);
+    setError(null);
+    try {
+      const r = await api.solveCandidate(stem.trim(), opts);
+      setAnswer(r.answer);
+      if (!explanation.trim()) setExplanation(r.explanation);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSolving(false);
+    }
+  }
+
   async function save() {
     if (!stem.trim()) return setError('题干必填');
     const options = KEYS.map((k, i) => ({ key: k, text: optionTexts[i].trim() })).filter((o) => o.text);
     if (options.length < 2) return setError('至少 2 个选项');
+    if (!answer) return setError('还没选答案（手动选一个或点 AI 解题）');
     if (!options.find((o) => o.key === answer)) return setError('答案必须在选项中');
 
     setSubmitting(true);
@@ -149,6 +168,15 @@ function ConfirmOne({
         <label className="font-cn font-bold text-sm block mb-1">题干</label>
         <Textarea value={stem} onChange={(e) => setStem(e.target.value)} rows={3} />
       </div>
+      {!answer && (
+        <Box variant="dashed" className="p-3 bg-chip-cream">
+          <p className="font-cn text-xs mb-2 font-bold">⚠️ AI 没识别出标准答案</p>
+          <p className="font-cn text-xs text-ink-2 mb-2">下方选项中手动选一个，或者让 AI 帮你解：</p>
+          <Button onClick={solveByAI} disabled={solving} variant="primary" className="w-full justify-center text-xs">
+            {solving ? '🤖 AI 解题中…' : '🤖 让 AI 解一下'}
+          </Button>
+        </Box>
+      )}
       <div>
         <label className="font-cn font-bold text-sm block mb-1">选项 + 答案</label>
         <div className="space-y-2">

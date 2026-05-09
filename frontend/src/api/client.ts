@@ -126,6 +126,12 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ knowledge, difficulty }) },
     ),
 
+  solveCandidate: (stem: string, options: { key: string; text: string }[]) =>
+    request<{ answer: string; explanation: string }>(
+      `/solve-candidate`,
+      { method: 'POST', body: JSON.stringify({ stem, options }) },
+    ),
+
   nextQuiz: (pid: string) => request<Question | { done: true }>(`/profiles/${pid}/quiz/next`),
   submitAttempt: (qid: string, input: { chosen: string; timeSpentMs?: number }) =>
     request<{
