@@ -7,3 +7,11 @@ dist/
 .vite/
 coverage/
 drizzle/meta/
+
+# tsc/vite emit artifacts that should never be committed
+*.tsbuildinfo
+backend/tests/*.js
+backend/scripts/*.js
+backend/src/**/*.js
+frontend/vite.config.js
+frontend/vite.config.d.ts

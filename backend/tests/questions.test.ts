@@ -85,13 +85,12 @@ describe('GET /api/profiles/:pid/questions', () => {
 
 describe('GET /api/questions/:id', () => {
   it('returns single question', async () => {
-    const created = await app
-      .request(`/api/profiles/${pid}/questions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify(validQuestion),
-      })
-      .then((r) => r.json());
+    const createRes = await app.request(`/api/profiles/${pid}/questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(validQuestion),
+    });
+    const created = await createRes.json();
     const res = await app.request(`/api/questions/${created.question.id}`, { headers: authHeaders() });
     expect(res.status).toBe(200);
     expect((await res.json()).stem).toBe(validQuestion.stem);

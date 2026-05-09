@@ -26,21 +26,19 @@ const validQuestion = {
 };
 
 beforeEach(async () => {
-  const p = await app
-    .request('/api/profiles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ examName: 'NPDP' }),
-    })
-    .then((r) => r.json());
+  const pRes = await app.request('/api/profiles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ examName: 'NPDP' }),
+  });
+  const p = await pRes.json();
   pid = p.id;
-  const q = await app
-    .request(`/api/profiles/${pid}/questions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify(validQuestion),
-    })
-    .then((r) => r.json());
+  const qRes = await app.request(`/api/profiles/${pid}/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(validQuestion),
+  });
+  const q = await qRes.json();
   qid = q.question.id;
 });
 

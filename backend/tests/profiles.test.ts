@@ -57,13 +57,12 @@ describe('GET /api/profiles', () => {
 
 describe('GET /api/profiles/:id', () => {
   it('returns profile by id', async () => {
-    const created = await app
-      .request('/api/profiles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ examName: 'NPDP' }),
-      })
-      .then((r) => r.json());
+    const createRes = await app.request('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ examName: 'NPDP' }),
+    });
+    const created = await createRes.json();
 
     const res = await app.request(`/api/profiles/${created.id}`, { headers: authHeaders() });
     expect(res.status).toBe(200);

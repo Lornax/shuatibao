@@ -3,7 +3,7 @@ import { app } from '../src/index.js';
 import { authHeaders } from './helpers.js';
 
 vi.mock('pdf-parse', () => ({
-  default: vi.fn(async (buf: Buffer) => ({ text: 'Mock PDF extracted text content here for testing purposes' })),
+  default: vi.fn(async (_buf: Buffer) => ({ text: 'Mock PDF extracted text content here for testing purposes' })),
 }));
 
 vi.mock('../src/ai/client.js', () => ({
@@ -62,13 +62,12 @@ vi.mock('../src/ai/client.js', () => ({
 let pid: string;
 
 beforeEach(async () => {
-  const p = await app
-    .request('/api/profiles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ examName: 'NPDP' }),
-    })
-    .then((r) => r.json());
+  const res = await app.request('/api/profiles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ examName: 'NPDP' }),
+  });
+  const p = await res.json();
   pid = p.id;
 });
 
