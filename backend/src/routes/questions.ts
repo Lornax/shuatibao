@@ -23,6 +23,15 @@ const createSchema = z.object({
   sourceMeta: z.record(z.string(), z.unknown()).optional(),
 });
 
+const patchSchema = z.object({
+  stem: z.string().min(1).max(2000).optional(),
+  options: z.array(optionSchema).min(2).max(8).optional(),
+  answer: z.string().max(20).optional(),
+  explanation: z.string().max(2000).nullable().optional(),
+  tags: z.array(z.string().max(30)).max(10).optional(),
+  difficulty: z.number().int().min(1).max(5).optional(),
+});
+
 const SIMILARITY_THRESHOLD = 0.85;
 
 async function ownProfile(profileId: string, userId: string) {
@@ -41,16 +50,13 @@ router.post('/profiles/:pid/questions', async (c) => {
 
   const body = await c.req.json().catch(() => null);
   const parsed = createSchema.safeParse(body);
-  if (!parsed.success) {
-    return c.json({ error: 'invalid_body', details: parsed.error.flatten() }, 400);
-  }
+  if (!parsed.success) return c.json({ error: 'invalid_body', details: parsed.error.flatten() }, 400);
 
   const answerKeys = parsed.data.options.map((o) => o.key);
   if (!answerKeys.includes(parsed.data.answer)) {
     return c.json({ error: 'answer_not_in_options' }, 400);
   }
 
-  // 算 embedding（失败不阻塞保存）
   let embedding: number[] | null = null;
   try {
     const [vec] = await embed([parsed.data.stem]);
@@ -75,18 +81,39 @@ router.post('/profiles/:pid/questions', async (c) => {
     })
     .returning();
 
-  // 算相似题（同 profile 下，排除自己）
-  const similar: { id: string; stem: string; similarity: number }[] = [];
+  type Sim = {
+    id: string;
+    stem: string;
+    options: { key: string; text: string }[];
+    answer: string;
+    explanation: string | null;
+    similarity: number;
+  };
+  const similar: Sim[] = [];
   if (embedding) {
     const others = await db
-      .select({ id: schema.questions.id, stem: schema.questions.stem, embedding: schema.questions.embedding })
+      .select({
+        id: schema.questions.id,
+        stem: schema.questions.stem,
+        options: schema.questions.options,
+        answer: schema.questions.answer,
+        explanation: schema.questions.explanation,
+        embedding: schema.questions.embedding,
+      })
       .from(schema.questions)
       .where(and(eq(schema.questions.profileId, pid), ne(schema.questions.id, row.id)));
     for (const o of others) {
       if (!o.embedding) continue;
       const sim = cosineSimilarity(embedding, o.embedding);
       if (sim >= SIMILARITY_THRESHOLD) {
-        similar.push({ id: o.id, stem: o.stem, similarity: Number(sim.toFixed(4)) });
+        similar.push({
+          id: o.id,
+          stem: o.stem,
+          options: o.options,
+          answer: o.answer,
+          explanation: o.explanation,
+          similarity: Number(sim.toFixed(4)),
+        });
       }
     }
     similar.sort((a, b) => b.similarity - a.similarity);
@@ -99,7 +126,6 @@ router.get('/profiles/:pid/questions', async (c) => {
   const userId = c.get('userId');
   const pid = c.req.param('pid');
   if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
-
   const rows = await db
     .select()
     .from(schema.questions)
@@ -112,16 +138,65 @@ router.get('/questions/:id', async (c) => {
   const userId = c.get('userId');
   const id = c.req.param('id');
   const [q] = await db
-    .select({
-      q: schema.questions,
-      p: schema.profiles,
-    })
+    .select({ q: schema.questions, p: schema.profiles })
     .from(schema.questions)
     .innerJoin(schema.profiles, eq(schema.questions.profileId, schema.profiles.id))
     .where(eq(schema.questions.id, id))
     .limit(1);
   if (!q || q.p.userId !== userId) return c.json({ error: 'not_found' }, 404);
   return c.json(q.q);
+});
+
+router.delete('/questions/:id', async (c) => {
+  const userId = c.get('userId');
+  const id = c.req.param('id');
+  const [row] = await db
+    .select({ q: schema.questions, p: schema.profiles })
+    .from(schema.questions)
+    .innerJoin(schema.profiles, eq(schema.questions.profileId, schema.profiles.id))
+    .where(eq(schema.questions.id, id))
+    .limit(1);
+  if (!row || row.p.userId !== userId) return c.json({ error: 'not_found' }, 404);
+  await db.delete(schema.questions).where(eq(schema.questions.id, id));
+  return c.json({ ok: true });
+});
+
+router.patch('/questions/:id', async (c) => {
+  const userId = c.get('userId');
+  const id = c.req.param('id');
+  const [row] = await db
+    .select({ q: schema.questions, p: schema.profiles })
+    .from(schema.questions)
+    .innerJoin(schema.profiles, eq(schema.questions.profileId, schema.profiles.id))
+    .where(eq(schema.questions.id, id))
+    .limit(1);
+  if (!row || row.p.userId !== userId) return c.json({ error: 'not_found' }, 404);
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = patchSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: 'invalid_body', details: parsed.error.flatten() }, 400);
+
+  const finalOptions = parsed.data.options ?? row.q.options;
+  if (parsed.data.answer && !finalOptions.map((o) => o.key).includes(parsed.data.answer)) {
+    return c.json({ error: 'answer_not_in_options' }, 400);
+  }
+
+  const updates: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.stem && parsed.data.stem !== row.q.stem) {
+    try {
+      const [vec] = await embed([parsed.data.stem]);
+      updates.embedding = vec ?? null;
+    } catch (e) {
+      console.error('embed failed during patch:', e);
+    }
+  }
+
+  const [updated] = await db
+    .update(schema.questions)
+    .set(updates)
+    .where(eq(schema.questions.id, id))
+    .returning();
+  return c.json(updated);
 });
 
 export { router as questionsRouter };

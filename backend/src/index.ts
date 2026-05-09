@@ -9,6 +9,7 @@ import { questionsRouter } from './routes/questions.js';
 import { attemptsRouter } from './routes/attempts.js';
 import { parseRouter } from './routes/parse.js';
 import { solveRouter } from './routes/solve.js';
+import { tagsRouter } from './routes/tags.js';
 
 const app = new Hono<{ Variables: AuthVars }>();
 
@@ -23,6 +24,7 @@ app.route('/api', questionsRouter);
 app.route('/api', attemptsRouter);
 app.route('/api', parseRouter);
 app.route('/api', solveRouter);
+app.route('/api', tagsRouter);
 
 if (process.env.NODE_ENV !== 'test' && import.meta.url === `file://${process.argv[1]}`) {
   serve({ fetch: app.fetch, port: config.PORT }, (info) => {
