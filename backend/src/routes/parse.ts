@@ -3,7 +3,14 @@ import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
-import { recognizeQuestionFromImage, generateQuestionFromPrompt } from '../ai/client.js';
+import {
+  recognizeQuestionFromImage,
+  generateQuestionFromPrompt,
+  structureQuestionsFromPdfText,
+} from '../ai/client.js';
+// pdf-parse has no types; runtime import OK
+// @ts-expect-error pdf-parse has no types
+import pdfParse from 'pdf-parse';
 
 const router = new Hono<{ Variables: AuthVars }>();
 
@@ -57,6 +64,42 @@ router.post('/profiles/:pid/parse/prompt', async (c) => {
   try {
     const candidate = await generateQuestionFromPrompt(parsed.data.knowledge, parsed.data.difficulty);
     return c.json({ candidate, source: 'ai_gen' });
+  } catch (e) {
+    return c.json({ error: 'ai_failed', detail: String(e) }, 502);
+  }
+});
+
+router.post('/profiles/:pid/parse/pdf', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get('pdf');
+  if (!file || !(file instanceof File)) return c.json({ error: 'pdf_missing' }, 400);
+  if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+    return c.json({ error: 'not_a_pdf' }, 400);
+  }
+  if (file.size > 20 * 1024 * 1024) return c.json({ error: 'pdf_too_large' }, 400);
+
+  const buf = Buffer.from(await file.arrayBuffer());
+
+  let text = '';
+  try {
+    const result = await pdfParse(buf);
+    text = (result.text ?? '').trim();
+  } catch (e) {
+    return c.json({ error: 'pdf_parse_failed', detail: String(e) }, 400);
+  }
+  if (text.length < 10) return c.json({ error: 'pdf_no_text' }, 400);
+
+  // 截断防止超长（qwen-max 上下文有限）
+  const MAX = 30000;
+  if (text.length > MAX) text = text.slice(0, MAX);
+
+  try {
+    const candidates = await structureQuestionsFromPdfText(text);
+    return c.json({ candidates, source: 'pdf', count: candidates.length });
   } catch (e) {
     return c.json({ error: 'ai_failed', detail: String(e) }, 502);
   }

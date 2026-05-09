@@ -2,6 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { app } from '../src/index.js';
 import { authHeaders } from './helpers.js';
 
+vi.mock('pdf-parse', () => ({
+  default: vi.fn(async (buf: Buffer) => ({ text: 'Mock PDF extracted text content here for testing purposes' })),
+}));
+
 vi.mock('../src/ai/client.js', () => ({
   recognizeQuestionFromImage: vi.fn(async () => ({
     stem: 'mock 题干',
@@ -27,7 +31,30 @@ vi.mock('../src/ai/client.js', () => ({
     tags: ['NPDP'],
     difficulty: 3,
   })),
-  structureQuestionsFromPdfText: vi.fn(),
+  structureQuestionsFromPdfText: vi.fn(async () => [
+    {
+      stem: 'PDF 题 1',
+      options: [
+        { key: 'A', text: '1' },
+        { key: 'B', text: '2' },
+      ],
+      answer: 'A',
+      explanation: '',
+      tags: ['NPDP'],
+      difficulty: 2,
+    },
+    {
+      stem: 'PDF 题 2',
+      options: [
+        { key: 'A', text: 'x' },
+        { key: 'B', text: 'y' },
+      ],
+      answer: 'B',
+      explanation: '',
+      tags: ['NPDP'],
+      difficulty: 1,
+    },
+  ]),
   embed: vi.fn(),
   cosineSimilarity: vi.fn(),
 }));
@@ -131,5 +158,35 @@ describe('POST /api/profiles/:pid/parse/prompt', () => {
     const body = await res.json();
     expect(body.candidate.stem).toBe('mock 出题题干');
     expect(body.source).toBe('ai_gen');
+  });
+});
+
+describe('POST /api/profiles/:pid/parse/pdf', () => {
+  it('returns candidates array from mocked AI', async () => {
+    const fd = new FormData();
+    // 拼一个看起来像 PDF 的 buffer，mock 会忽略实际内容
+    const fakePdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, ...new Array(40).fill(0x20)]);
+    fd.set('pdf', new File([fakePdfBytes], 't.pdf', { type: 'application/pdf' }));
+    const res = await app.request(`/api/profiles/${pid}/parse/pdf`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: fd,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.candidates).toHaveLength(2);
+    expect(body.source).toBe('pdf');
+    expect(body.count).toBe(2);
+  });
+
+  it('rejects no pdf', async () => {
+    const fd = new FormData();
+    const res = await app.request(`/api/profiles/${pid}/parse/pdf`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: fd,
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('pdf_missing');
   });
 });
