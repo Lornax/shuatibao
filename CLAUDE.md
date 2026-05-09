@@ -61,6 +61,16 @@ cd backend && npm test  # 18 个 integration test
 cd frontend && npm run build  # 编译 + 类型检查
 ```
 
+### v0.0.2+ AI 调用
+
+`backend/.env` 必须设 `DASHSCOPE_API_KEY=sk-xxx`（[阿里云通义千问百炼平台](https://bailian.console.aliyun.com)，新用户免费额度 100 万 token 足够 NPDP 备考期间使用）。模型：
+
+- `qwen-vl-max` 拍照识题（视觉模态 → 结构化 JSON）
+- `qwen-max` AI 出题 / PDF 文本结构化
+- `text-embedding-v3` 查重 embedding（1024 维 → 余弦相似度 ≥0.85 提示）
+
+调用走 dashscope OpenAI 兼容 endpoint：`https://dashscope.aliyuncs.com/compatible-mode/v1`，使用 openai SDK 直接调。
+
 ## Structure
 
 ```
