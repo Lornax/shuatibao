@@ -6,7 +6,7 @@ export const candidateQuestionSchema = z.object({
     .array(z.object({ key: z.string().min(1).max(4), text: z.string().min(1).max(500) }))
     .min(2)
     .max(8),
-  answer: z.string().min(1).max(20),
+  answer: z.string().max(20).default(''),
   explanation: z.string().max(2000).default(''),
   tags: z.array(z.string().max(30)).max(10).default(['NPDP']),
   difficulty: z.number().int().min(1).max(5).default(2),
@@ -40,7 +40,7 @@ export function parseCandidateOrThrow(raw: string): CandidateQuestion {
   }
 
   const keys = result.data.options.map((o) => o.key);
-  if (!keys.includes(result.data.answer)) {
+  if (result.data.answer && !keys.includes(result.data.answer)) {
     throw new Error(`AI answer "${result.data.answer}" not in options ${keys.join(',')}`);
   }
 
@@ -61,7 +61,7 @@ export function parseCandidateArrayOrThrow(raw: string): CandidateQuestion[] {
   }
   for (const q of result.data) {
     const keys = q.options.map((o) => o.key);
-    if (!keys.includes(q.answer)) {
+    if (q.answer && !keys.includes(q.answer)) {
       throw new Error(`AI answer "${q.answer}" not in options ${keys.join(',')}`);
     }
   }

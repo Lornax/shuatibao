@@ -57,6 +57,7 @@ vi.mock('../src/ai/client.js', () => ({
   ]),
   embed: vi.fn(),
   cosineSimilarity: vi.fn(),
+  solveQuestion: vi.fn(),
 }));
 
 let pid: string;

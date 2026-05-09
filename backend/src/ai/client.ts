@@ -4,6 +4,7 @@ import {
   VISION_RECOGNIZE_PROMPT,
   PROMPT_GEN_PROMPT,
   PDF_STRUCTURE_PROMPT,
+  SOLVE_PROMPT,
 } from './prompts.js';
 import {
   parseCandidateOrThrow,
@@ -65,6 +66,38 @@ export async function structureQuestionsFromPdfText(pdfText: string): Promise<Ca
   });
   const raw = r.choices[0]?.message?.content ?? '';
   return parseCandidateArrayOrThrow(raw);
+}
+
+export async function solveQuestion(
+  stem: string,
+  options: { key: string; text: string }[],
+): Promise<{ answer: string; explanation: string }> {
+  const optionsStr = options.map((o) => `${o.key}. ${o.text}`).join('\n');
+  const r = await client.chat.completions.create({
+    model: MODEL_TEXT,
+    messages: [
+      {
+        role: 'system',
+        content: SOLVE_PROMPT.replace('{stem}', stem).replace('{options}', optionsStr),
+      },
+    ],
+    temperature: 0.3,
+  });
+  const raw = (r.choices[0]?.message?.content ?? '').trim();
+  const json = raw.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```$/, '');
+  let obj: any;
+  try {
+    obj = JSON.parse(json);
+  } catch (e) {
+    throw new Error(`solveQuestion bad JSON: ${raw.slice(0, 200)}`);
+  }
+  if (typeof obj.answer !== 'string' || typeof obj.explanation !== 'string') {
+    throw new Error(`solveQuestion bad shape: ${raw.slice(0, 200)}`);
+  }
+  if (!options.find((o) => o.key === obj.answer)) {
+    throw new Error(`solveQuestion answer "${obj.answer}" not in options`);
+  }
+  return obj;
 }
 
 export async function embed(texts: string[]): Promise<number[][]> {
