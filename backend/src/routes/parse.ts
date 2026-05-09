@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
-import { recognizeQuestionFromImage } from '../ai/client.js';
+import { recognizeQuestionFromImage, generateQuestionFromPrompt } from '../ai/client.js';
 
 const router = new Hono<{ Variables: AuthVars }>();
 
@@ -34,6 +35,28 @@ router.post('/profiles/:pid/parse/image', async (c) => {
   try {
     const candidate = await recognizeQuestionFromImage(dataUrl);
     return c.json({ candidate, source: 'photo' });
+  } catch (e) {
+    return c.json({ error: 'ai_failed', detail: String(e) }, 502);
+  }
+});
+
+const promptSchema = z.object({
+  knowledge: z.string().min(2).max(500),
+  difficulty: z.number().int().min(1).max(5).default(2),
+});
+
+router.post('/profiles/:pid/parse/prompt', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = promptSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: 'invalid_body' }, 400);
+
+  try {
+    const candidate = await generateQuestionFromPrompt(parsed.data.knowledge, parsed.data.difficulty);
+    return c.json({ candidate, source: 'ai_gen' });
   } catch (e) {
     return c.json({ error: 'ai_failed', detail: String(e) }, 502);
   }

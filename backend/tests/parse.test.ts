@@ -14,7 +14,19 @@ vi.mock('../src/ai/client.js', () => ({
     tags: ['NPDP'],
     difficulty: 2,
   })),
-  generateQuestionFromPrompt: vi.fn(),
+  generateQuestionFromPrompt: vi.fn(async () => ({
+    stem: 'mock 出题题干',
+    options: [
+      { key: 'A', text: 'aa' },
+      { key: 'B', text: 'bb' },
+      { key: 'C', text: 'cc' },
+      { key: 'D', text: 'dd' },
+    ],
+    answer: 'C',
+    explanation: 'because',
+    tags: ['NPDP'],
+    difficulty: 3,
+  })),
   structureQuestionsFromPdfText: vi.fn(),
   embed: vi.fn(),
   cosineSimilarity: vi.fn(),
@@ -87,5 +99,37 @@ describe('POST /api/profiles/:pid/parse/image', () => {
     const body = await res.json();
     expect(body.candidate.stem).toBe('mock 题干');
     expect(body.source).toBe('photo');
+  });
+});
+
+describe('POST /api/profiles/:pid/parse/prompt', () => {
+  it('rejects unauth', async () => {
+    const res = await app.request(`/api/profiles/${pid}/parse/prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ knowledge: '产品生命周期' }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects empty knowledge', async () => {
+    const res = await app.request(`/api/profiles/${pid}/parse/prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ knowledge: '' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns candidate from mocked AI', async () => {
+    const res = await app.request(`/api/profiles/${pid}/parse/prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ knowledge: '产品生命周期' }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.candidate.stem).toBe('mock 出题题干');
+    expect(body.source).toBe('ai_gen');
   });
 });
