@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, ne } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
+import { embed, cosineSimilarity } from '../ai/client.js';
 
 const router = new Hono<{ Variables: AuthVars }>();
 
@@ -18,7 +19,11 @@ const createSchema = z.object({
   explanation: z.string().max(2000).optional(),
   tags: z.array(z.string().max(30)).max(10).default([]),
   difficulty: z.number().int().min(1).max(5).default(2),
+  source: z.enum(['photo', 'manual', 'pdf', 'ai_gen']).default('manual'),
+  sourceMeta: z.record(z.string(), z.unknown()).optional(),
 });
+
+const SIMILARITY_THRESHOLD = 0.85;
 
 async function ownProfile(profileId: string, userId: string) {
   const [row] = await db
@@ -45,6 +50,15 @@ router.post('/profiles/:pid/questions', async (c) => {
     return c.json({ error: 'answer_not_in_options' }, 400);
   }
 
+  // 算 embedding（失败不阻塞保存）
+  let embedding: number[] | null = null;
+  try {
+    const [vec] = await embed([parsed.data.stem]);
+    embedding = vec ?? null;
+  } catch (e) {
+    console.error('embed failed for question, saving without embedding:', e);
+  }
+
   const [row] = await db
     .insert(schema.questions)
     .values({
@@ -55,10 +69,30 @@ router.post('/profiles/:pid/questions', async (c) => {
       explanation: parsed.data.explanation,
       tags: parsed.data.tags,
       difficulty: parsed.data.difficulty,
-      source: 'manual',
+      source: parsed.data.source,
+      sourceMeta: parsed.data.sourceMeta,
+      embedding,
     })
     .returning();
-  return c.json(row, 201);
+
+  // 算相似题（同 profile 下，排除自己）
+  const similar: { id: string; stem: string; similarity: number }[] = [];
+  if (embedding) {
+    const others = await db
+      .select({ id: schema.questions.id, stem: schema.questions.stem, embedding: schema.questions.embedding })
+      .from(schema.questions)
+      .where(and(eq(schema.questions.profileId, pid), ne(schema.questions.id, row.id)));
+    for (const o of others) {
+      if (!o.embedding) continue;
+      const sim = cosineSimilarity(embedding, o.embedding);
+      if (sim >= SIMILARITY_THRESHOLD) {
+        similar.push({ id: o.id, stem: o.stem, similarity: Number(sim.toFixed(4)) });
+      }
+    }
+    similar.sort((a, b) => b.similarity - a.similarity);
+  }
+
+  return c.json({ question: row, similar }, 201);
 });
 
 router.get('/profiles/:pid/questions', async (c) => {

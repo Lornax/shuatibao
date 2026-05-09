@@ -1,6 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { app } from '../src/index.js';
 import { authHeaders } from './helpers.js';
+
+vi.mock('../src/ai/client.js', () => ({
+  embed: vi.fn(async (texts: string[]) => texts.map(() => new Array(1024).fill(0.1))),
+  cosineSimilarity: vi.fn(() => 0.5),
+  recognizeQuestionFromImage: vi.fn(),
+  generateQuestionFromPrompt: vi.fn(),
+  structureQuestionsFromPdfText: vi.fn(),
+}));
 
 let pid: string;
 let qid: string;
@@ -33,7 +41,7 @@ beforeEach(async () => {
       body: JSON.stringify(validQuestion),
     })
     .then((r) => r.json());
-  qid = q.id;
+  qid = q.question.id;
 });
 
 describe('POST /api/questions/:qid/attempts', () => {

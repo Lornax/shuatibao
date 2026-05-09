@@ -1,6 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { app } from '../src/index.js';
 import { authHeaders } from './helpers.js';
+
+vi.mock('../src/ai/client.js', () => ({
+  embed: vi.fn(async (texts: string[]) => texts.map(() => new Array(1024).fill(0.1))),
+  cosineSimilarity: vi.fn(() => 0.5),
+  recognizeQuestionFromImage: vi.fn(),
+  generateQuestionFromPrompt: vi.fn(),
+  structureQuestionsFromPdfText: vi.fn(),
+}));
 
 let pid: string;
 
@@ -36,9 +44,10 @@ describe('POST /api/profiles/:pid/questions', () => {
     });
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.stem).toBe(validQuestion.stem);
-    expect(body.options).toHaveLength(4);
-    expect(body.source).toBe('manual');
+    expect(body.question.stem).toBe(validQuestion.stem);
+    expect(body.question.options).toHaveLength(4);
+    expect(body.question.source).toBe('manual');
+    expect(body.similar).toEqual([]);
   });
 
   it('rejects answer not in options', async () => {
@@ -83,7 +92,7 @@ describe('GET /api/questions/:id', () => {
         body: JSON.stringify(validQuestion),
       })
       .then((r) => r.json());
-    const res = await app.request(`/api/questions/${created.id}`, { headers: authHeaders() });
+    const res = await app.request(`/api/questions/${created.question.id}`, { headers: authHeaders() });
     expect(res.status).toBe(200);
     expect((await res.json()).stem).toBe(validQuestion.stem);
   });
