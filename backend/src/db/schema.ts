@@ -35,6 +35,7 @@ export const questions = pgTable('questions', {
   difficulty: integer('difficulty').default(2).notNull(),
   source: questionSource('source').default('manual').notNull(),
   sourceMeta: jsonb('source_meta').$type<Record<string, unknown>>(),
+  embedding: jsonb('embedding').$type<number[]>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   profileIdx: index('questions_profile_idx').on(t.profileId),
