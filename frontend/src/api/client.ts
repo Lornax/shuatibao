@@ -31,6 +31,8 @@ export type Profile = {
   createdAt: string;
 };
 
+export type QuestionSource = 'photo' | 'manual' | 'pdf' | 'ai_gen';
+
 export type Question = {
   id: string;
   stem: string;
@@ -39,6 +41,22 @@ export type Question = {
   explanation: string | null;
   tags: string[];
   difficulty: number;
+  source: QuestionSource;
+};
+
+export type CandidateQuestion = {
+  stem: string;
+  options: { key: string; text: string }[];
+  answer: string;
+  explanation: string;
+  tags: string[];
+  difficulty: number;
+};
+
+export type SimilarQuestion = {
+  id: string;
+  stem: string;
+  similarity: number;
 };
 
 export type WrongItem = {
@@ -68,8 +86,45 @@ export const api = {
       explanation?: string;
       tags?: string[];
       difficulty?: number;
+      source?: QuestionSource;
+      sourceMeta?: Record<string, unknown>;
     },
-  ) => request<Question>(`/profiles/${pid}/questions`, { method: 'POST', body: JSON.stringify(input) }),
+  ) => request<{ question: Question; similar: SimilarQuestion[] }>(`/profiles/${pid}/questions`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }),
+
+  parseImage: (pid: string, file: File) => {
+    const fd = new FormData();
+    fd.set('image', file);
+    return fetch(`/api/profiles/${pid}/parse/image`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}` },
+      body: fd,
+    }).then(async (res) => {
+      if (!res.ok) throw new Error(`parseImage ${res.status}: ${await res.text()}`);
+      return res.json() as Promise<{ candidate: CandidateQuestion; source: 'photo' }>;
+    });
+  },
+
+  parsePdf: (pid: string, file: File) => {
+    const fd = new FormData();
+    fd.set('pdf', file);
+    return fetch(`/api/profiles/${pid}/parse/pdf`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}` },
+      body: fd,
+    }).then(async (res) => {
+      if (!res.ok) throw new Error(`parsePdf ${res.status}: ${await res.text()}`);
+      return res.json() as Promise<{ candidates: CandidateQuestion[]; source: 'pdf'; count: number }>;
+    });
+  },
+
+  parsePrompt: (pid: string, knowledge: string, difficulty: number) =>
+    request<{ candidate: CandidateQuestion; source: 'ai_gen' }>(
+      `/profiles/${pid}/parse/prompt`,
+      { method: 'POST', body: JSON.stringify({ knowledge, difficulty }) },
+    ),
 
   nextQuiz: (pid: string) => request<Question | { done: true }>(`/profiles/${pid}/quiz/next`),
   submitAttempt: (qid: string, input: { chosen: string; timeSpentMs?: number }) =>

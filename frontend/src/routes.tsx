@@ -5,6 +5,10 @@ import { ProfileDetail } from './pages/ProfileDetail';
 import { QuestionAdd } from './pages/QuestionAdd';
 import { Quiz } from './pages/Quiz';
 import { WrongBook } from './pages/WrongBook';
+import { QuestionFromImage } from './pages/QuestionFromImage';
+import { QuestionFromPDF } from './pages/QuestionFromPDF';
+import { QuestionFromPrompt } from './pages/QuestionFromPrompt';
+import { QuestionConfirm } from './pages/QuestionConfirm';
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/profiles" replace /> },
@@ -14,4 +18,8 @@ export const router = createBrowserRouter([
   { path: '/profiles/:pid/questions/new', element: <QuestionAdd /> },
   { path: '/profiles/:pid/quiz', element: <Quiz /> },
   { path: '/profiles/:pid/wrongbook', element: <WrongBook /> },
+  { path: '/profiles/:pid/questions/from-image', element: <QuestionFromImage /> },
+  { path: '/profiles/:pid/questions/from-pdf', element: <QuestionFromPDF /> },
+  { path: '/profiles/:pid/questions/from-prompt', element: <QuestionFromPrompt /> },
+  { path: '/profiles/:pid/questions/confirm', element: <QuestionConfirm /> },
 ]);
