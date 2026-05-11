@@ -42,12 +42,20 @@ export async function recognizeQuestionFromImage(imageBase64DataUrl: string): Pr
 export async function generateQuestionFromPrompt(
   knowledge: string,
   difficulty = 2,
+  chapter?: string,
+  topics?: string,
 ): Promise<CandidateQuestion> {
+  const userMsg = [
+    `知识点：${knowledge}`,
+    chapter ? `教材章节：${chapter}` : '',
+    topics ? `考点关键词：${topics}` : '',
+    `难度：${difficulty}`,
+  ].filter(Boolean).join('\n');
   const r = await client.chat.completions.create({
     model: MODEL_TEXT,
     messages: [
       { role: 'system', content: PROMPT_GEN_PROMPT },
-      { role: 'user', content: `知识点：${knowledge}\n难度：${difficulty}` },
+      { role: 'user', content: userMsg },
     ],
     temperature: 0.7,
   });

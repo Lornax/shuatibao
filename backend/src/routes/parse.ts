@@ -50,6 +50,8 @@ router.post('/profiles/:pid/parse/image', async (c) => {
 const promptSchema = z.object({
   knowledge: z.string().min(2).max(500),
   difficulty: z.number().int().min(1).max(5).default(2),
+  chapter: z.string().max(100).optional(),
+  topics: z.string().max(200).optional(),
 });
 
 router.post('/profiles/:pid/parse/prompt', async (c) => {
@@ -62,7 +64,12 @@ router.post('/profiles/:pid/parse/prompt', async (c) => {
   if (!parsed.success) return c.json({ error: 'invalid_body' }, 400);
 
   try {
-    const candidate = await generateQuestionFromPrompt(parsed.data.knowledge, parsed.data.difficulty);
+    const candidate = await generateQuestionFromPrompt(
+      parsed.data.knowledge,
+      parsed.data.difficulty,
+      parsed.data.chapter,
+      parsed.data.topics,
+    );
     return c.json({ candidate, source: 'ai_gen' });
   } catch (e) {
     return c.json({ error: 'ai_failed', detail: String(e) }, 502);

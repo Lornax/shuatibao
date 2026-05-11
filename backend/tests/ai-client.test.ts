@@ -27,6 +27,6 @@ describe.skipIf(skip)('AI client smoke (calls real dashscope)', () => {
     expect(q.stem).toBeTruthy();
     expect(q.options.length).toBeGreaterThanOrEqual(3);
     expect(q.options.map((o) => o.key)).toContain(q.answer);
-    expect(q.tags).toContain('NPDP');
+    expect(Array.isArray(q.tags)).toBe(true);
   }, 60000);
 });

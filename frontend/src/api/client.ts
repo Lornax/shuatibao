@@ -123,11 +123,16 @@ export const api = {
     });
   },
 
-  parsePrompt: (pid: string, knowledge: string, difficulty: number) =>
+  parsePrompt: (
+    pid: string,
+    input: { knowledge: string; difficulty: number; chapter?: string; topics?: string },
+  ) =>
     request<{ candidate: CandidateQuestion; source: 'ai_gen' }>(
       `/profiles/${pid}/parse/prompt`,
-      { method: 'POST', body: JSON.stringify({ knowledge, difficulty }) },
+      { method: 'POST', body: JSON.stringify(input) },
     ),
+
+  listTags: (pid: string) => request<{ tag: string; cnt: number }[]>(`/profiles/${pid}/tags`),
 
   solveCandidate: (stem: string, options: { key: string; text: string }[]) =>
     request<{ answer: string; explanation: string }>(
