@@ -1,0 +1,360 @@
+/* Wireframe sketchy style — handwritten but readable */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Patrick+Hand&family=Kalam:wght@300;400;700&display=swap');
+
+:root {
+  --ink: #1a1a1a;
+  --ink-2: #4a4a4a;
+  --ink-3: #888;
+  --paper: #fafaf6;
+  --line: #2a2a2a;
+  --accent: #d94a3a;     /* warm red — sketch highlight */
+  --accent-2: #f4c542;   /* soft yellow */
+  --accent-3: #4a7eb8;   /* dusty blue */
+  --accent-4: #6ba368;   /* sage green */
+  --hand: 'Patrick Hand', 'Caveat', cursive;
+  --hand-bold: 'Kalam', cursive;
+  --display: 'Caveat', cursive;
+}
+
+* { box-sizing: border-box; }
+
+.wf {
+  font-family: var(--hand);
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* sketchy borders — multiple offset shadows fake a hand-drawn look */
+.wf-box {
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  position: relative;
+}
+.wf-box-soft {
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.wf-box-dashed {
+  border: 1.5px dashed var(--ink-2);
+  border-radius: 8px;
+  background: transparent;
+}
+.wf-box-thick {
+  border: 2.5px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+/* sketchy "highlighter" yellow swipe behind text */
+.wf-hl {
+  background: linear-gradient(180deg, transparent 55%, var(--accent-2) 55%, var(--accent-2) 92%, transparent 92%);
+  padding: 0 4px;
+}
+
+/* underline scribble */
+.wf-underline {
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 4px;
+}
+
+.wf-h1 { font-family: var(--display); font-weight: 700; font-size: 28px; line-height: 1; }
+.wf-h2 { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1; }
+.wf-h3 { font-family: var(--hand-bold); font-weight: 700; font-size: 16px; }
+.wf-body { font-family: var(--hand); font-size: 14px; }
+.wf-small { font-family: var(--hand); font-size: 12px; color: var(--ink-2); }
+.wf-tiny { font-family: var(--hand); font-size: 11px; color: var(--ink-3); }
+
+.wf-btn {
+  font-family: var(--hand-bold);
+  font-weight: 700;
+  font-size: 14px;
+  border: 2px solid var(--line);
+  border-radius: 22px;
+  padding: 9px 18px;
+  background: #fff;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.wf-btn-primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.wf-btn-accent {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.wf-btn-ghost {
+  background: transparent;
+}
+
+/* placeholder image — diagonal slash */
+.wf-img {
+  background: #f0eee5;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.wf-img::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, transparent calc(50% - 1px), var(--ink-3) calc(50% - 0.5px), var(--ink-3) calc(50% + 0.5px), transparent calc(50% + 1px)),
+    linear-gradient(45deg, transparent calc(50% - 1px), var(--ink-3) calc(50% - 0.5px), var(--ink-3) calc(50% + 0.5px), transparent calc(50% + 1px));
+  opacity: 0.5;
+}
+.wf-avatar {
+  background: #f0eee5;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  position: relative;
+  overflow: hidden;
+}
+.wf-avatar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 38%, var(--ink-3) 0 16%, transparent 17%),
+    radial-gradient(ellipse at 50% 95%, var(--ink-3) 0 30%, transparent 31%);
+  opacity: 0.4;
+}
+
+.wf-row { display: flex; align-items: center; gap: 8px; }
+.wf-col { display: flex; flex-direction: column; gap: 8px; }
+
+/* squiggle divider */
+.wf-squiggle {
+  height: 6px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='6' viewBox='0 0 40 6'><path d='M0 3 Q 5 0 10 3 T 20 3 T 30 3 T 40 3' fill='none' stroke='%231a1a1a' stroke-width='1.2'/></svg>");
+  background-repeat: repeat-x;
+  background-size: 40px 6px;
+}
+
+/* tab bar at bottom of phone */
+.wf-tabbar {
+  position: absolute;
+  left: 8px; right: 8px; bottom: 28px;
+  height: 56px;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 14px;
+}
+.wf-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--hand);
+  font-size: 10px;
+  color: var(--ink-2);
+}
+.wf-tab.active { color: var(--accent); }
+.wf-tab .dot {
+  width: 22px; height: 22px;
+  border: 1.5px solid currentColor;
+  border-radius: 6px;
+  position: relative;
+}
+.wf-tab.active .dot { background: var(--accent); border-color: var(--accent); }
+.wf-tab.active .dot::after {
+  content: '';
+  position: absolute; inset: 4px;
+  border: 1.5px solid #fff;
+  border-radius: 2px;
+}
+
+/* status bar (simple, sketchy) */
+.wf-status {
+  height: 38px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  font-family: var(--hand-bold);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+/* phone shell — 402x874-ish but simpler bezel */
+.wf-phone {
+  width: 320px;
+  height: 660px;
+  background: var(--paper);
+  border: 2.5px solid var(--line);
+  border-radius: 38px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 4px 4px 0 var(--line);
+}
+.wf-phone::before {
+  /* dynamic island */
+  content: '';
+  position: absolute;
+  top: 8px; left: 50%;
+  transform: translateX(-50%);
+  width: 90px; height: 22px;
+  background: var(--line);
+  border-radius: 12px;
+  z-index: 5;
+}
+.wf-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 38px;
+}
+.wf-screen-content {
+  flex: 1;
+  overflow: hidden;
+  padding: 0 14px 14px;
+  position: relative;
+}
+
+/* annotation arrow + label — used outside the phone in canvas */
+.wf-note {
+  font-family: var(--display);
+  font-size: 18px;
+  color: var(--accent);
+  line-height: 1.05;
+}
+.wf-arrow {
+  font-family: var(--display);
+  font-size: 28px;
+  color: var(--accent);
+}
+
+/* chip / tag pills */
+.wf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 3px 10px;
+  font-family: var(--hand);
+  font-size: 12px;
+  background: #fff;
+}
+.wf-chip-fill { background: var(--accent-2); }
+.wf-chip-blue { background: #d4e4f4; }
+.wf-chip-green { background: #d4e8d0; }
+.wf-chip-pink { background: #f4d4d0; }
+
+/* progress bar */
+.wf-prog {
+  height: 8px;
+  background: #f0eee5;
+  border: 1.2px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.wf-prog > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* checkbox / radio */
+.wf-check {
+  width: 18px; height: 18px;
+  border: 1.5px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.wf-check.on { background: var(--ink); }
+.wf-check.on::after { content: '✓'; color: #fff; font-size: 13px; line-height: 1; }
+.wf-radio {
+  width: 18px; height: 18px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  flex-shrink: 0;
+  position: relative;
+}
+.wf-radio.on::after {
+  content: '';
+  position: absolute; inset: 3px;
+  border-radius: 999px;
+  background: var(--ink);
+}
+
+/* input field */
+.wf-input {
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px 12px;
+  font-family: var(--hand);
+  font-size: 14px;
+  color: var(--ink);
+  width: 100%;
+}
+.wf-input.empty { color: var(--ink-3); }
+
+/* card with stacked offset (multiple) */
+.wf-stack {
+  position: relative;
+}
+.wf-stack::before, .wf-stack::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--line);
+  border-radius: inherit;
+  background: #fff;
+  z-index: -1;
+}
+.wf-stack::before { transform: translate(4px, 4px); }
+.wf-stack::after { transform: translate(8px, 8px); opacity: 0.6; }
+
+/* bottom-sheet style */
+.wf-sheet {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  background: #fff;
+  border-top: 2px solid var(--line);
+  border-radius: 22px 22px 0 0;
+  padding: 14px;
+}
+.wf-sheet-handle {
+  width: 36px; height: 4px;
+  background: var(--ink-3);
+  border-radius: 2px;
+  margin: 0 auto 10px;
+}
+
+/* small SVG icon stub — square outlined */
+.wf-icon {
+  width: 18px; height: 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.wf-icon-circle {
+  border-radius: 999px;
+}

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>学不死 · 微信小程序线框图</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+  body { margin: 0; background: #f0eee9; font-family: 'Patrick Hand', cursive; }
+  .stage-title { font-family: 'Caveat', cursive; font-weight: 700; font-size: 36px; color: #1a1a1a; margin: 0 0 4px; letter-spacing: -0.5px; }
+  .stage-sub { font-family: 'Patrick Hand', cursive; color: #4a4a4a; margin: 0 0 18px; font-size: 15px; }
+  .annotation { font-family: 'Caveat', cursive; color: #d94a3a; font-size: 18px; line-height: 1.2; }
+  .phase-badge { display:inline-block; padding:1px 7px; border-radius:10px; font-family:'Patrick Hand',cursive; font-size:11px; margin-right:6px; border:1.5px solid #1a1a1a; vertical-align:1px; }
+  .phase-p1 { background:#d4e8d0; color:#2a5a2a; }
+  .phase-p2 { background:#f0e0d0; color:#7a4a2a; opacity:0.75; }
+  .phase-legend { display:flex; gap:14px; align-items:center; margin-top:6px; font-family:'Patrick Hand',cursive; font-size:14px; color:#4a4a4a; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="wf-shell.jsx"></script>
+<script type="text/babel" src="wf-onboarding.jsx"></script>
+<script type="text/babel" src="wf-plaza.jsx"></script>
+<script type="text/babel" src="wf-plan.jsx"></script>
+<script type="text/babel" src="wf-rest.jsx"></script>
+<script type="text/babel" src="wf-market.jsx"></script>
+<script type="text/babel" src="wf-market2.jsx"></script>
+<script type="text/babel" src="wf-lib-manage.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const TWEAK_DEFAULS = /*EDITMODE-BEGIN*/{
+  "showAnnotations": true,
+  "accent": "#d94a3a",
+  "paper": "#fafaf6"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULS);
+
+  React.useEffect(() => {
+    document.documentElement.style.setProperty('--accent', t.accent);
+    document.documentElement.style.setProperty('--paper', t.paper);
+  }, [t.accent, t.paper]);
+
+  const Note = ({ children, style }) => t.showAnnotations ? (
+    <div className="annotation" style={style}>{children}</div>
+  ) : null;
+
+  return (
+    <>
+      <DesignCanvas>
+        <DCSection id="intro" title="学不死 · 备考陪跑小程序" subtitle={<><div>低保真线框图 · iPhone 17 Pro · 已分期标注</div><div className="phase-legend"><span><span className="phase-badge phase-p1">P1</span>一期 MVP</span><span><span className="phase-badge phase-p2">P2</span>二期</span></div></>}>
+          <DCArtboard id="map" label="信息架构 · 概览" width={520} height={660}>
+            <div className="wf" style={{padding:24, height:'100%', background:'#fff'}}>
+              <div className="wf-h1" style={{fontSize:30, marginBottom:4}}>信息架构 · 分期</div>
+              <div className="wf-small" style={{marginBottom:6}}>🟢 一期 MVP · 🟡 二期</div>
+              <div className="wf-tiny" style={{marginBottom:12, color:'#4a4a4a'}}>一期目标: 让 1-2 个种子用户跑通"建档 → 填题库 → 刷题 + AI 陪学 → 拿结果"</div>
+              <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                <div className="wf-box-thick" style={{padding:'10px 12px', background:'#d4e8d0'}}>
+                  <div className="wf-h3">🟢 ① 注册 (AI 对话式, 仅 1 屏)</div>
+                  <div className="wf-small">3-5 句话搞定身份 + 目标 + 考试</div>
+                </div>
+                <div className="wf-box-thick" style={{padding:'10px 12px', background:'#d4e8d0'}}>
+                  <div className="wf-h3" style={{color:'#2a5a2a'}}>🟢 ③ 备考档案 (核心)</div>
+                  <div className="wf-small">列表 / 新建 / 详情 / 简单归档 (打勾完成)</div>
+                </div>
+                <div className="wf-box-thick" style={{padding:'10px 12px', background:'#d4e8d0'}}>
+                  <div className="wf-h3" style={{color:'#2a5a2a'}}>🟢 ④ AI 陪学</div>
+                  <div className="wf-small">主聊天 + 催促打卡 (周报转 P2)</div>
+                </div>
+                <div className="wf-box-thick" style={{padding:'10px 12px', background:'#d4e8d0'}}>
+                  <div className="wf-h3" style={{color:'#2a5a2a'}}>🟢 ⑤ 题库 + AI 搜索</div>
+                  <div className="wf-small">答题 / 数据 / 搜索 + 题库管理 (4 种入口)</div>
+                </div>
+                <div className="wf-box-thick" style={{padding:'10px 12px', background:'#d4e8d0'}}>
+                  <div className="wf-h3" style={{color:'#2a5a2a'}}>🟢 ⑥ 个人中心 (精简)</div>
+                  <div className="wf-small">头像 / 订阅占位 / 隐私 / 退出</div>
+                </div>
+                <div className="wf-squiggle"></div>
+                <div className="wf-box-soft" style={{padding:'10px 12px', background:'#f0e0d0', opacity:0.8}}>
+                  <div className="wf-h3">🟡 ② 广场 (社交)</div>
+                  <div className="wf-small">大佬 / 上岸墙 / 动态 — 等种子用户跑通后再做</div>
+                </div>
+                <div className="wf-box-soft" style={{padding:'10px 12px', background:'#f0e0d0', opacity:0.8}}>
+                  <div className="wf-h3">🟡 ⑦ 市场 (知识付费)</div>
+                  <div className="wf-small">买卖错题本 / 题库 — 依赖广场 + 信任体系</div>
+                </div>
+                <div className="wf-box-soft" style={{padding:'10px 12px', background:'#f0e0d0', opacity:0.8}}>
+                  <div className="wf-h3">🟡 资料 AI 全网搜</div>
+                  <div className="wf-small">一期题库只走手输 / 拍照 / 文件三种</div>
+                </div>
+                <div className="wf-box-soft" style={{padding:'10px 12px', background:'#f0e0d0', opacity:0.8}}>
+                  <div className="wf-h3">🟡 用户画像可视化 / 周报</div>
+                  <div className="wf-small">需要数据积累, 一期跑完后再做</div>
+                </div>
+              </div>
+              <div className="wf-tiny" style={{marginTop:14}}>※ 这是低保真线框图; 配色 / 字体 / 间距均待 视觉阶段细化</div>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="onboarding" title="① 注册 + 个人档案" subtitle="一期只保留 C · AI 对话式注册 (轻量, 3-5 句话搞定)">
+          <DCArtboard id="A1" label="🟡 P2 · A1 欢迎页" width={320} height={660}><OnbA_Welcome/></DCArtboard>
+          <DCArtboard id="A2" label="🟡 P2 · A2 选身份" width={320} height={660}><OnbA_Identity/></DCArtboard>
+          <DCArtboard id="A3" label="🟡 P2 · A3 行业关注" width={320} height={660}><OnbA_Field/></DCArtboard>
+          <DCArtboard id="A4" label="🟡 P2 · A4 推荐 (依赖广场)" width={320} height={660}><OnbA_Recommend/></DCArtboard>
+          <DCArtboard id="B1" label="🟡 P2 · B 一页填完" width={320} height={660}><OnbB_OnePage/></DCArtboard>
+          <DCArtboard id="C1" label="🟢 P1 · C AI 对话式 (一期采用)" width={320} height={660}><OnbC_Chat/></DCArtboard>
+        </DCSection>
+
+        <DCSection id="plaza" title="② 广场 (整体延后) 🟡 P2" subtitle="一期不做社交, 注册后直接进备考档案">
+          <DCArtboard id="P1" label="🟡 P2 · A 信息流" width={320} height={660}><PlazaA_Feed/></DCArtboard>
+          <DCArtboard id="P2" label="🟡 P2 · B 大佬列表" width={320} height={660}><PlazaB_Mentors/></DCArtboard>
+          <DCArtboard id="P3" label="🟡 P2 · C 上岸墙" width={320} height={660}><PlazaC_Wall/></DCArtboard>
+        </DCSection>
+
+        <DCSection id="plan" title="③ 备考档案" subtitle="一期保留: 列表 / 新建 / 详情 / 简单归档. 上传成果照片延后 (无展示去处)">
+          <DCArtboard id="L1" label="🟢 P1 · A 档案列表" width={320} height={660}><PlanA_List/></DCArtboard>
+          <DCArtboard id="L2" label="🟢 P1 · B 新建档案" width={320} height={660}><PlanB_Create/></DCArtboard>
+          <DCArtboard id="L3" label="🟢 P1 · C 计划详情" width={320} height={660}><PlanC_Detail/></DCArtboard>
+          <DCArtboard id="L4" label="🟢 P1 · D 简单归档 (打勾完成)" width={320} height={660}><PlanD_Archive/></DCArtboard>
+          <DCArtboard id="L4b" label="🟡 P2 · D2 归档+成果 (依赖广场)" width={320} height={660}><PlanD2_Archive/></DCArtboard>
+        </DCSection>
+
+        <DCSection id="source" title="③.5 资料来源 (整体延后) 🟡 P2" subtitle="一期资料只走题库管理的手输/拍照/文件三种, 不做 AI 全网搜">
+          <DCArtboard id="S1" label="🟡 P2 · A 选来源" width={320} height={660}><Source_Choose/></DCArtboard>
+          <DCArtboard id="S2" label="🟡 P2 · B AI 搜索中" width={320} height={660}><Source_Searching/></DCArtboard>
+          <DCArtboard id="S3" label="🟡 P2 · C 待采购清单" width={320} height={660}><Source_Pending/></DCArtboard>
+        </DCSection>
+
+        <DCSection id="market" title="⑦ 市场 (整体延后) 🟡 P2" subtitle="先让用户跑通自己的题库 + 拿到结果, 再考虑社区付费">
+          <DCArtboard id="M1" label="🟡 P2 · 市场首页" width={320} height={660}><Market_Home/></DCArtboard>
+          <DCArtboard id="M2" label="🟡 P2 · 商品详情" width={320} height={660}><Market_Detail/></DCArtboard>
+          <DCArtboard id="M3" label="🟡 P2 · 上架" width={320} height={660}><Market_Publish/></DCArtboard>
+        </DCSection>
+
+        <DCSection id="market2" title="⑦.5 市场配套 🟡 P2" subtitle="全部跟随市场延后">
+          <DCArtboard id="MB1" label="🟡 P2 · 买家 · 我的购买" width={320} height={660}><Me_Purchases/></DCArtboard>
+          <DCArtboard id="MS1" label="🟡 P2 · 卖家 · 审核" width={320} height={660}><Author_Review/></DCArtboard>
+          <DCArtboard id="MS2" label="🟡 P2 · 卖家 · 收益" width={320} height={660}><Author_Earnings/></DCArtboard>
+          <DCArtboard id="MQ1" label="🟡 P2 · 质量评估" width={320} height={660}><Source_Quality/></DCArtboard>
+        </DCSection>
+
+        <DCSection id="ai" title="④ AI 陪学" subtitle="一期: 主聊天 + 催促打卡. 周报需要数据积累, 延后">
+          <DCArtboard id="AI1" label="🟢 P1 · A 主聊天" width={320} height={660}><AiA_Chat/></DCArtboard>
+          <DCArtboard id="AI2" label="🟢 P1 部分 · 催促打卡 (周报转 P2)" width={320} height={660}><AiB_Nudge/></DCArtboard>
+        </DCSection>
+
+        <DCSection id="lib" title="⑤ 题库 / 搜索研究" subtitle="一期全保留: 刷题 / 数据中心 / AI 搜索">
+          <DCArtboard id="LB1" label="🟢 P1 · A 答题中" width={320} height={660}><LibA_Quiz/></DCArtboard>
+          <DCArtboard id="LB2" label="🟢 P1 · B 题库首页" width={320} height={660}><LibB_Home/></DCArtboard>
+          <DCArtboard id="LB3" label="🟢 P1 · C AI 搜索研究" width={320} height={660}><LibC_Search/></DCArtboard>
+        </DCSection>
+
+        <DCSection id="libmanage" title="⑤.5 题库管理" subtitle="一期保留 4 种入口 (去掉市场/链接); 加题来源精简">
+          <DCArtboard id="LM1" label="🟢 P1 · A 管理首页" width={320} height={660}><Lib_Manage/></DCArtboard>
+          <DCArtboard id="LM2" label="🟢 P1 · B 加题 (去掉市场/链接)" width={320} height={660}><Lib_AddSheet/></DCArtboard>
+          <DCArtboard id="LM3" label="🟢 P1 · C 拍照识题" width={320} height={660}><Lib_OcrEdit/></DCArtboard>
+          <DCArtboard id="LM4" label="🟢 P1 · D 查重" width={320} height={660}><Lib_Dup/></DCArtboard>
+          <DCArtboard id="LM5" label="🟢 P1 · E 批量导入" width={320} height={660}><Lib_BulkImport/></DCArtboard>
+        </DCSection>
+
+        <DCSection id="me" title="⑥ 个人中心" subtitle="一期精简版: 头像/昵称/订阅占位/隐私协议/退出. 用户画像可视化延后">
+          <DCArtboard id="ME1" label="🟢 P1 · 精简版 (画像图表转 P2)" width={320} height={660}><MeA_Profile/></DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="显示">
+          <TweakToggle label="批注 / 注释" value={t.showAnnotations} onChange={(v) => setTweak('showAnnotations', v)} />
+        </TweakSection>
+        <TweakSection title="高亮色">
+          <TweakColor label="accent" value={t.accent}
+            options={['#d94a3a', '#4a7eb8', '#6ba368', '#8b5fbf']}
+            onChange={(v) => setTweak('accent', v)} />
+        </TweakSection>
+        <TweakSection title="纸张">
+          <TweakColor label="背景" value={t.paper}
+            options={['#fafaf6', '#fff8e6', '#f0eee9', '#ffffff']}
+            onChange={(v) => setTweak('paper', v)} />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
