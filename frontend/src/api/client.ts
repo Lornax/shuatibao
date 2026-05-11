@@ -56,6 +56,9 @@ export type CandidateQuestion = {
 export type SimilarQuestion = {
   id: string;
   stem: string;
+  options: { key: string; text: string }[];
+  answer: string;
+  explanation: string | null;
   similarity: number;
 };
 
@@ -141,4 +144,18 @@ export const api = {
     }>(`/questions/${qid}/attempts`, { method: 'POST', body: JSON.stringify(input) }),
 
   wrongbook: (pid: string) => request<WrongItem[]>(`/profiles/${pid}/wrongbook`),
+
+  deleteQuestion: (id: string) => request<{ ok: true }>(`/questions/${id}`, { method: 'DELETE' }),
+
+  patchQuestion: (
+    id: string,
+    input: Partial<{
+      stem: string;
+      options: { key: string; text: string }[];
+      answer: string;
+      explanation: string | null;
+      tags: string[];
+      difficulty: number;
+    }>,
+  ) => request<Question>(`/questions/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
 };

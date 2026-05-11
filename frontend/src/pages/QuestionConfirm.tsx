@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { api, type CandidateQuestion, type QuestionSource, type SimilarQuestion } from '../api/client';
+import { api, type CandidateQuestion, type Question, type QuestionSource, type SimilarQuestion } from '../api/client';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
@@ -13,6 +13,8 @@ type LocationState = {
   candidates?: CandidateQuestion[];
   source: QuestionSource;
 };
+
+type BulkMode = 'none' | 'keep_all' | 'skip_all';
 
 export function QuestionConfirm() {
   const { pid } = useParams<{ pid: string }>();
@@ -32,23 +34,42 @@ export function QuestionConfirm() {
 
   const queue = state.candidates ?? (state.candidate ? [state.candidate] : []);
   const [idx, setIdx] = useState(0);
+  const [bulkMode, setBulkMode] = useState<BulkMode>('none');
   const current = queue[idx];
+
+  function next() {
+    if (idx + 1 < queue.length) setIdx(idx + 1);
+    else nav(`/profiles/${pid}`);
+  }
 
   return (
     <Layout title={`确认 ${idx + 1}/${queue.length}`} back={() => nav(`/profiles/${pid}`)}>
+      {queue.length > 1 && bulkMode === 'none' && (
+        <div className="flex gap-2 mb-3">
+          <Button variant="ghost" onClick={() => setBulkMode('keep_all')} className="flex-1 justify-center text-xs">
+            全部都保留
+          </Button>
+          <Button variant="ghost" onClick={() => setBulkMode('skip_all')} className="flex-1 justify-center text-xs">
+            遇到相似全跳过
+          </Button>
+        </div>
+      )}
+      {bulkMode !== 'none' && (
+        <Box variant="dashed" className="p-2 mb-3 flex items-center gap-2">
+          <span className="font-cn text-xs flex-1">
+            批量模式：{bulkMode === 'keep_all' ? '相似题全保留' : '相似题全跳过（删新建）'}
+          </span>
+          <Button variant="ghost" onClick={() => setBulkMode('none')} className="text-xs">取消</Button>
+        </Box>
+      )}
       <ConfirmOne
         key={idx}
         pid={pid!}
         candidate={current}
         source={state.source}
-        onSavedNext={() => {
-          if (idx + 1 < queue.length) setIdx(idx + 1);
-          else nav(`/profiles/${pid}`);
-        }}
-        onSkip={() => {
-          if (idx + 1 < queue.length) setIdx(idx + 1);
-          else nav(`/profiles/${pid}`);
-        }}
+        bulkMode={bulkMode}
+        onSavedNext={next}
+        onSkip={next}
       />
     </Layout>
   );
@@ -58,15 +79,18 @@ function ConfirmOne({
   pid,
   candidate,
   source,
+  bulkMode,
   onSavedNext,
   onSkip,
 }: {
   pid: string;
   candidate: CandidateQuestion;
   source: QuestionSource;
+  bulkMode: BulkMode;
   onSavedNext: () => void;
   onSkip: () => void;
 }) {
+  const KEYS = ['A', 'B', 'C', 'D'] as const;
   const [stem, setStem] = useState(candidate.stem);
   const [optionTexts, setOptionTexts] = useState(() => {
     const arr = ['', '', '', ''];
@@ -75,7 +99,6 @@ function ConfirmOne({
     });
     return arr;
   });
-  const KEYS = ['A', 'B', 'C', 'D'] as const;
   const [answer, setAnswer] = useState<string>(candidate.answer || '');
   const [explanation, setExplanation] = useState(candidate.explanation || '');
   const [difficulty, setDifficulty] = useState(candidate.difficulty);
@@ -83,6 +106,7 @@ function ConfirmOne({
   const [submitting, setSubmitting] = useState(false);
   const [solving, setSolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedQuestion, setSavedQuestion] = useState<Question | null>(null);
   const [similar, setSimilar] = useState<SimilarQuestion[] | null>(null);
 
   function setOption(i: number, text: string) {
@@ -126,6 +150,18 @@ function ConfirmOne({
         source,
       });
       if (res.similar.length > 0) {
+        // 应用 bulkMode
+        if (bulkMode === 'keep_all') {
+          onSavedNext();
+          return;
+        }
+        if (bulkMode === 'skip_all') {
+          await api.deleteQuestion(res.question.id);
+          onSavedNext();
+          return;
+        }
+        // 否则进入决策 UI
+        setSavedQuestion(res.question);
         setSimilar(res.similar);
       } else {
         onSavedNext();
@@ -137,25 +173,33 @@ function ConfirmOne({
     }
   }
 
-  if (similar) {
+  async function resolveSimilar(action: 'keep_new' | 'keep_old' | 'keep_both') {
+    if (!savedQuestion || !similar) return;
+    try {
+      if (action === 'keep_new') {
+        for (const s of similar) {
+          await api.deleteQuestion(s.id);
+        }
+      } else if (action === 'keep_old') {
+        await api.deleteQuestion(savedQuestion.id);
+      }
+      // keep_both: 啥也不删
+    } catch (e) {
+      setError(String(e));
+      return;
+    }
+    setSavedQuestion(null);
+    setSimilar(null);
+    onSavedNext();
+  }
+
+  if (similar && savedQuestion) {
     return (
-      <div className="space-y-3">
-        <Box variant="thick" className="p-3 bg-chip-cream">
-          <p className="font-cn font-bold mb-2">⚠️ 题库里有相似的题</p>
-          {similar.map((s) => (
-            <div key={s.id} className="font-cn text-sm mb-1">
-              · {s.stem.slice(0, 50)}{s.stem.length > 50 ? '...' : ''}
-              <span className="text-ink-3 text-xs ml-1">（{(s.similarity * 100).toFixed(0)}%）</span>
-            </div>
-          ))}
-          <p className="font-cn text-xs text-ink-2 mt-2">
-            题已保存。如果你确认重复，可以稍后从档案里删掉。
-          </p>
-        </Box>
-        <Button variant="primary" onClick={onSavedNext} className="w-full justify-center">
-          继续
-        </Button>
-      </div>
+      <SimilarDecision
+        newQ={savedQuestion}
+        similar={similar}
+        onResolve={resolveSimilar}
+      />
     );
   }
 
@@ -216,6 +260,77 @@ function ConfirmOne({
         <Button variant="ghost" onClick={onSkip} className="flex-1 justify-center">跳过这题</Button>
         <Button variant="primary" onClick={save} disabled={submitting} className="flex-[1.4] justify-center">
           {submitting ? '保存中...' : '保存'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SimilarDecision({
+  newQ,
+  similar,
+  onResolve,
+}: {
+  newQ: Question;
+  similar: SimilarQuestion[];
+  onResolve: (action: 'keep_new' | 'keep_old' | 'keep_both') => void;
+}) {
+  const [acting, setActing] = useState(false);
+  const handle = async (a: 'keep_new' | 'keep_old' | 'keep_both') => {
+    setActing(true);
+    await onResolve(a);
+    setActing(false);
+  };
+  return (
+    <div className="space-y-3">
+      <Box variant="thick" className="p-3 bg-chip-cream">
+        <p className="font-cn font-bold text-sm">⚠️ 题库里有相似题，选一个动作</p>
+      </Box>
+
+      <Box variant="soft" className="p-3">
+        <div className="font-cn text-xs text-ink-2 mb-1">你刚加的（新）</div>
+        <p className="font-cn text-sm font-bold mb-2">{newQ.stem}</p>
+        {newQ.options.map((o) => (
+          <div key={o.key} className="font-cn text-xs">
+            {o.key}. {o.text} {o.key === newQ.answer && <span className="text-accent-4 font-bold">✓ 答案</span>}
+          </div>
+        ))}
+      </Box>
+
+      {similar.map((s) => {
+        const answerDiffer = s.answer && newQ.answer && s.answer !== newQ.answer;
+        return (
+          <Box key={s.id} variant="soft" className={`p-3 ${answerDiffer ? 'border-accent border-2' : ''}`}>
+            <div className="font-cn text-xs text-ink-2 mb-1">
+              已有（相似度 {(s.similarity * 100).toFixed(0)}%）
+            </div>
+            <p className="font-cn text-sm font-bold mb-2">{s.stem}</p>
+            {s.options.map((o) => (
+              <div key={o.key} className="font-cn text-xs">
+                {o.key}. {o.text} {o.key === s.answer && <span className="text-accent-4 font-bold">✓ 答案</span>}
+              </div>
+            ))}
+            {answerDiffer && (
+              <p className="font-cn text-xs text-accent mt-2 font-bold">⚠️ 答案不一样！自己核对一下哪个对</p>
+            )}
+            {s.explanation && (
+              <p className="font-cn text-xs text-ink-2 mt-2 border-t border-dashed border-ink-3 pt-2">
+                解析：{s.explanation}
+              </p>
+            )}
+          </Box>
+        );
+      })}
+
+      <div className="space-y-2 pt-2">
+        <Button variant="primary" onClick={() => handle('keep_new')} disabled={acting} className="w-full justify-center">
+          保留新题，删旧题
+        </Button>
+        <Button onClick={() => handle('keep_old')} disabled={acting} className="w-full justify-center">
+          丢弃新题，保留旧题
+        </Button>
+        <Button variant="ghost" onClick={() => handle('keep_both')} disabled={acting} className="w-full justify-center">
+          都保留（不是重复）
         </Button>
       </div>
     </div>
