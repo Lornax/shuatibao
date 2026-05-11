@@ -52,7 +52,12 @@ export function ProfileDetail() {
         </Link>
       </div>
 
-      <h2 className="font-display text-xl mb-2">最近的题</h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="font-display text-xl">最近的题</h2>
+        <Link to={`/profiles/${pid}/library`} className="font-cn text-xs underline">
+          管理全部 →
+        </Link>
+      </div>
       {questions.length === 0 && (
         <Box variant="dashed" className="p-4 text-center">
           <p className="font-cn text-sm text-ink-2">还没有题，先加几道再来</p>
