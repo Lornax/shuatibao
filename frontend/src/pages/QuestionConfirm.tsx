@@ -7,6 +7,7 @@ import { Chip } from '../components/Chip';
 import { Check } from '../components/Check';
 import { Input, Textarea } from '../components/Input';
 import { Layout } from '../components/Layout';
+import { StagedLoader } from '../components/StagedLoader';
 
 type LocationState = {
   candidate?: CandidateQuestion;
@@ -219,6 +220,18 @@ function ConfirmOne({
           <Button onClick={solveByAI} disabled={solving} variant="primary" className="w-full justify-center text-xs">
             {solving ? '🤖 AI 解题中…' : '🤖 让 AI 解一下'}
           </Button>
+          {solving && (
+            <div className="mt-2">
+              <StagedLoader
+                active={solving}
+                stages={[
+                  { label: '读题', emoji: '📖', minMs: 2000 },
+                  { label: '推理答案', emoji: '🧠', minMs: 5000 },
+                  { label: '写解析', emoji: '✍️', minMs: 4000 },
+                ]}
+              />
+            </div>
+          )}
         </Box>
       )}
       <div>

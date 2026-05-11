@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
 import { Layout } from '../components/Layout';
+import { StagedLoader } from '../components/StagedLoader';
 
 export function QuestionFromImage() {
   const { pid } = useParams<{ pid: string }>();
@@ -66,8 +67,20 @@ export function QuestionFromImage() {
             <p className="font-cn text-xs text-accent">{error}</p>
           </Box>
         )}
+        {submitting && (
+          <Box variant="dashed" className="p-3 bg-chip-cream">
+            <StagedLoader
+              active={submitting}
+              stages={[
+                { label: '上传图片', emoji: '📤', minMs: 1500 },
+                { label: 'AI 看图思考', emoji: '👁', minMs: 8000 },
+                { label: '整理结构化结果', emoji: '🧩', minMs: 3000 },
+              ]}
+            />
+          </Box>
+        )}
         <Button variant="primary" onClick={go} disabled={!file || submitting} className="w-full justify-center">
-          {submitting ? '识别中...（10-30s）' : '开始识别'}
+          {submitting ? '识别中…' : '开始识别'}
         </Button>
       </div>
     </Layout>

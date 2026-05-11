@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { Input } from '../components/Input';
 import { Layout } from '../components/Layout';
+import { StagedLoader } from '../components/StagedLoader';
 
 export function QuestionFromPrompt() {
   const { pid } = useParams<{ pid: string }>();
@@ -106,8 +107,20 @@ export function QuestionFromPrompt() {
             <p className="font-cn text-xs text-accent">{error}</p>
           </Box>
         )}
+        {submitting && (
+          <Box variant="dashed" className="p-3 bg-chip-cream">
+            <StagedLoader
+              active={submitting}
+              stages={[
+                { label: '理解知识点', emoji: '🤔', minMs: 4000 },
+                { label: '构造选项与迷惑项', emoji: '✏️', minMs: 6000 },
+                { label: '生成解析', emoji: '📝', minMs: 5000 },
+              ]}
+            />
+          </Box>
+        )}
         <Button variant="primary" onClick={go} disabled={submitting} className="w-full justify-center">
-          {submitting ? 'AI 出题中...（10-20s）' : 'AI 帮我出一道'}
+          {submitting ? 'AI 出题中…' : 'AI 帮我出一道'}
         </Button>
       </div>
     </Layout>
