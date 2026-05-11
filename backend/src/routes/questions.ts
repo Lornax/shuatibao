@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, desc, and, ne } from 'drizzle-orm';
+import { eq, desc, and, ne, sql } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
 import { embed, cosineSimilarity } from '../ai/client.js';
@@ -126,12 +126,29 @@ router.get('/profiles/:pid/questions', async (c) => {
   const userId = c.get('userId');
   const pid = c.req.param('pid');
   if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
   const rows = await db
-    .select()
+    .select({
+      question: schema.questions,
+      attemptTotal: sql<number>`COALESCE(COUNT(${schema.attempts.id}), 0)::int`,
+      attemptCorrect: sql<number>`COALESCE(SUM(CASE WHEN ${schema.attempts.isCorrect} THEN 1 ELSE 0 END), 0)::int`,
+    })
     .from(schema.questions)
+    .leftJoin(
+      schema.attempts,
+      and(eq(schema.attempts.questionId, schema.questions.id), eq(schema.attempts.userId, userId)),
+    )
     .where(eq(schema.questions.profileId, pid))
+    .groupBy(schema.questions.id)
     .orderBy(desc(schema.questions.createdAt));
-  return c.json(rows);
+
+  const result = rows.map((r) => ({
+    ...r.question,
+    attemptTotal: r.attemptTotal,
+    attemptCorrect: r.attemptCorrect,
+    accuracy: r.attemptTotal > 0 ? r.attemptCorrect / r.attemptTotal : null,
+  }));
+  return c.json(result);
 });
 
 router.get('/questions/:id', async (c) => {
