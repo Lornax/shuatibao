@@ -13,7 +13,33 @@ type LocationState = {
   candidate?: CandidateQuestion;
   candidates?: CandidateQuestion[];
   source: QuestionSource;
+  chapter?: string;
 };
+
+const CHAPTER_PREFIX = '章节:';
+
+function splitTags(tags: string[]): { chapter: string; rest: string[] } {
+  let chapter = '';
+  const rest: string[] = [];
+  for (const t of tags) {
+    if (t.startsWith(CHAPTER_PREFIX) && !chapter) {
+      chapter = t.slice(CHAPTER_PREFIX.length);
+    } else {
+      rest.push(t);
+    }
+  }
+  return { chapter, rest };
+}
+
+function combineTags(chapter: string, rest: string[]): string[] {
+  const out: string[] = [];
+  if (chapter.trim()) out.push(CHAPTER_PREFIX + chapter.trim());
+  for (const r of rest) {
+    const v = r.trim();
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
 
 type BulkMode = 'none' | 'keep_all' | 'skip_all';
 
@@ -69,6 +95,7 @@ export function QuestionConfirm() {
         candidate={current}
         source={state.source}
         bulkMode={bulkMode}
+        prefillChapter={state.chapter}
         onSavedNext={next}
         onSkip={next}
       />
@@ -81,6 +108,7 @@ function ConfirmOne({
   candidate,
   source,
   bulkMode,
+  prefillChapter,
   onSavedNext,
   onSkip,
 }: {
@@ -88,6 +116,7 @@ function ConfirmOne({
   candidate: CandidateQuestion;
   source: QuestionSource;
   bulkMode: BulkMode;
+  prefillChapter?: string;
   onSavedNext: () => void;
   onSkip: () => void;
 }) {
@@ -103,7 +132,9 @@ function ConfirmOne({
   const [answer, setAnswer] = useState<string>(candidate.answer || '');
   const [explanation, setExplanation] = useState(candidate.explanation || '');
   const [difficulty, setDifficulty] = useState(candidate.difficulty);
-  const [tagInput, setTagInput] = useState(candidate.tags.join(', '));
+  const initialSplit = splitTags(candidate.tags);
+  const [chapter, setChapter] = useState(prefillChapter || initialSplit.chapter);
+  const [tagInput, setTagInput] = useState(initialSplit.rest.join(', '));
   const [submitting, setSubmitting] = useState(false);
   const [solving, setSolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +188,7 @@ function ConfirmOne({
         options,
         answer,
         explanation: explanation.trim() || undefined,
-        tags: tagInput.split(',').map((s) => s.trim()).filter(Boolean),
+        tags: combineTags(chapter, tagInput.split(',').map((s) => s.trim()).filter(Boolean)),
         difficulty,
         source,
       });
@@ -259,21 +290,41 @@ function ConfirmOne({
         <Textarea value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={2} />
       </div>
       <div>
-        <label className="font-cn font-bold text-sm block mb-1">标签（章节 / 考点 / 个人记忆）</label>
+        <label className="font-cn font-bold text-sm block mb-1">章节</label>
+        <input
+          list={`chapters-${pid}`}
+          value={chapter}
+          onChange={(e) => setChapter(e.target.value)}
+          placeholder="例：第3章 · 历史输入会自动提示"
+          className="border-[1.5px] border-ink rounded-lg bg-white px-3 py-2 font-cn text-sm text-ink w-full focus:outline-none focus:ring-2 focus:ring-accent"
+        />
+        <datalist id={`chapters-${pid}`}>
+          {historyTags
+            .filter((t) => t.tag.startsWith(CHAPTER_PREFIX))
+            .map((t) => (
+              <option key={t.tag} value={t.tag.slice(CHAPTER_PREFIX.length)} />
+            ))}
+        </datalist>
+      </div>
+      <div>
+        <label className="font-cn font-bold text-sm block mb-1">个人标签（考点 / 易错 / 已掌握等，逗号分隔）</label>
         <Input
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
-          placeholder="例：第3章, BCG矩阵, 易错"
+          placeholder="例：BCG矩阵, 易错"
         />
-        {historyTags.length > 0 && (
+        {historyTags.filter((t) => !t.tag.startsWith(CHAPTER_PREFIX)).length > 0 && (
           <div className="mt-2">
             <p className="font-cn text-xs text-ink-2 mb-1">历史标签（点击追加）：</p>
             <div className="flex gap-1 flex-wrap">
-              {historyTags.slice(0, 10).map((t) => (
-                <Chip key={t.tag} onClick={() => appendTag(t.tag)}>
-                  {t.tag} <span className="text-ink-3">·{t.cnt}</span>
-                </Chip>
-              ))}
+              {historyTags
+                .filter((t) => !t.tag.startsWith(CHAPTER_PREFIX))
+                .slice(0, 10)
+                .map((t) => (
+                  <Chip key={t.tag} onClick={() => appendTag(t.tag)}>
+                    {t.tag} <span className="text-ink-3">·{t.cnt}</span>
+                  </Chip>
+                ))}
             </div>
           </div>
         )}
@@ -316,7 +367,11 @@ function SimilarDecision({
   const [arbitrating, setArbitrating] = useState(false);
   const [aiVerdict, setAiVerdict] = useState<{ answer: string; explanation: string } | null>(null);
   const [arbitrateErr, setArbitrateErr] = useState<string | null>(null);
-  const hasAnswerConflict = similar.some((s) => s.answer && newQ.answer && s.answer !== newQ.answer);
+  // 仲裁触发收窄：相似度 ≥ 0.95（题干基本一模一样）且答案不同
+  const ARBITRATE_THRESHOLD = 0.95;
+  const hasNearDupAnswerConflict = similar.some(
+    (s) => s.similarity >= ARBITRATE_THRESHOLD && s.answer && newQ.answer && s.answer !== newQ.answer,
+  );
 
   const handle = async (a: 'keep_new' | 'keep_old' | 'keep_both') => {
     setActing(true);
@@ -337,15 +392,31 @@ function SimilarDecision({
     }
   }
 
+  async function adoptAiAnswer() {
+    if (!aiVerdict) return;
+    setActing(true);
+    try {
+      // 把新题答案改成 AI 推荐的，并合并 AI 解析（如果新题无解析）
+      await api.patchQuestion(newQ.id, {
+        answer: aiVerdict.answer,
+        explanation: newQ.explanation || aiVerdict.explanation,
+      });
+      // 然后删旧题
+      await onResolve('keep_new');
+    } finally {
+      setActing(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <Box variant="thick" className="p-3 bg-chip-cream">
         <p className="font-cn font-bold text-sm">⚠️ 题库里有相似题，选一个动作</p>
       </Box>
 
-      {hasAnswerConflict && (
+      {hasNearDupAnswerConflict && (
         <Box variant="dashed" className="p-3">
-          <p className="font-cn text-xs font-bold mb-2">答案不一致，可以让 AI 仲裁帮你判断</p>
+          <p className="font-cn text-xs font-bold mb-2">题干高度相似（≥95%）但答案不一致，可以让 AI 仲裁帮你判断</p>
           {!aiVerdict && (
             <Button onClick={arbitrate} disabled={arbitrating} variant="primary" className="w-full justify-center text-xs">
               {arbitrating ? '🤖 AI 思考中…' : '🤖 让 AI 看看哪个答案对'}
@@ -353,9 +424,12 @@ function SimilarDecision({
           )}
           {arbitrateErr && <p className="font-cn text-xs text-accent mt-1">{arbitrateErr}</p>}
           {aiVerdict && (
-            <div className="mt-2">
+            <div className="mt-2 space-y-2">
               <p className="font-cn text-sm font-bold">AI 的判断：<span className="text-accent-4">{aiVerdict.answer}</span></p>
-              <p className="font-cn text-xs text-ink-2 mt-1">{aiVerdict.explanation}</p>
+              <p className="font-cn text-xs text-ink-2">{aiVerdict.explanation}</p>
+              <Button onClick={adoptAiAnswer} disabled={acting} variant="primary" className="w-full justify-center text-xs">
+                ✅ 采纳 AI 答案（改新题答案为 {aiVerdict.answer}，删旧题）
+              </Button>
             </div>
           )}
         </Box>

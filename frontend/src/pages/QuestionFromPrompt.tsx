@@ -42,7 +42,7 @@ export function QuestionFromPrompt() {
         topics: topics.trim() || undefined,
       });
       nav(`/profiles/${pid}/questions/confirm`, {
-        state: { candidate: res.candidate, source: 'ai_gen' },
+        state: { candidate: res.candidate, source: 'ai_gen', chapter: chapter.trim() || undefined },
       });
     } catch (e) {
       setError(String(e));
