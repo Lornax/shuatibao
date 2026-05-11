@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, type CandidateQuestion, type Question, type QuestionSource, type SimilarQuestion } from '../api/client';
 import { Box } from '../components/Box';
@@ -109,6 +109,17 @@ function ConfirmOne({
   const [error, setError] = useState<string | null>(null);
   const [savedQuestion, setSavedQuestion] = useState<Question | null>(null);
   const [similar, setSimilar] = useState<SimilarQuestion[] | null>(null);
+  const [historyTags, setHistoryTags] = useState<{ tag: string; cnt: number }[]>([]);
+
+  useEffect(() => {
+    api.listTags(pid).then(setHistoryTags).catch(() => setHistoryTags([]));
+  }, [pid]);
+
+  function appendTag(tag: string) {
+    const parts = tagInput.split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.includes(tag)) return;
+    setTagInput(parts.length === 0 ? tag : `${parts.join(', ')}, ${tag}`);
+  }
 
   function setOption(i: number, text: string) {
     setOptionTexts((prev) => prev.map((t, idx) => (idx === i ? text : t)));
@@ -213,27 +224,6 @@ function ConfirmOne({
         <label className="font-cn font-bold text-sm block mb-1">题干</label>
         <Textarea value={stem} onChange={(e) => setStem(e.target.value)} rows={3} />
       </div>
-      {!answer && (
-        <Box variant="dashed" className="p-3 bg-chip-cream">
-          <p className="font-cn text-xs mb-2 font-bold">⚠️ AI 没识别出标准答案</p>
-          <p className="font-cn text-xs text-ink-2 mb-2">下方选项中手动选一个，或者让 AI 帮你解：</p>
-          <Button onClick={solveByAI} disabled={solving} variant="primary" className="w-full justify-center text-xs">
-            {solving ? '🤖 AI 解题中…' : '🤖 让 AI 解一下'}
-          </Button>
-          {solving && (
-            <div className="mt-2">
-              <StagedLoader
-                active={solving}
-                stages={[
-                  { label: '读题', emoji: '📖', minMs: 2000 },
-                  { label: '推理答案', emoji: '🧠', minMs: 5000 },
-                  { label: '写解析', emoji: '✍️', minMs: 4000 },
-                ]}
-              />
-            </div>
-          )}
-        </Box>
-      )}
       <div>
         <label className="font-cn font-bold text-sm block mb-1">选项 + 答案</label>
         <div className="space-y-2">
@@ -245,14 +235,48 @@ function ConfirmOne({
             </div>
           ))}
         </div>
+        {!answer && (
+          <p className="font-cn text-xs text-accent mt-1">⚠️ AI 没识别出标准答案，请手选一个或点下方 AI 解题</p>
+        )}
+        <Button onClick={solveByAI} disabled={solving} variant={answer ? 'ghost' : 'primary'} className="w-full justify-center text-xs mt-2">
+          {solving ? '🤖 AI 解题中…' : answer ? '🔁 让 AI 重新解一下（对比 / 验证）' : '🤖 让 AI 解一下'}
+        </Button>
+        {solving && (
+          <div className="mt-2">
+            <StagedLoader
+              active={solving}
+              stages={[
+                { label: '读题', emoji: '📖', minMs: 2000 },
+                { label: '推理答案', emoji: '🧠', minMs: 5000 },
+                { label: '写解析', emoji: '✍️', minMs: 4000 },
+              ]}
+            />
+          </div>
+        )}
       </div>
       <div>
         <label className="font-cn font-bold text-sm block mb-1">解析</label>
         <Textarea value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={2} />
       </div>
       <div>
-        <label className="font-cn font-bold text-sm block mb-1">标签</label>
-        <Input value={tagInput} onChange={(e) => setTagInput(e.target.value)} />
+        <label className="font-cn font-bold text-sm block mb-1">标签（章节 / 考点 / 个人记忆）</label>
+        <Input
+          value={tagInput}
+          onChange={(e) => setTagInput(e.target.value)}
+          placeholder="例：第3章, BCG矩阵, 易错"
+        />
+        {historyTags.length > 0 && (
+          <div className="mt-2">
+            <p className="font-cn text-xs text-ink-2 mb-1">历史标签（点击追加）：</p>
+            <div className="flex gap-1 flex-wrap">
+              {historyTags.slice(0, 10).map((t) => (
+                <Chip key={t.tag} onClick={() => appendTag(t.tag)}>
+                  {t.tag} <span className="text-ink-3">·{t.cnt}</span>
+                </Chip>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div>
         <label className="font-cn font-bold text-sm block mb-1">难度</label>
@@ -289,16 +313,53 @@ function SimilarDecision({
   onResolve: (action: 'keep_new' | 'keep_old' | 'keep_both') => void;
 }) {
   const [acting, setActing] = useState(false);
+  const [arbitrating, setArbitrating] = useState(false);
+  const [aiVerdict, setAiVerdict] = useState<{ answer: string; explanation: string } | null>(null);
+  const [arbitrateErr, setArbitrateErr] = useState<string | null>(null);
+  const hasAnswerConflict = similar.some((s) => s.answer && newQ.answer && s.answer !== newQ.answer);
+
   const handle = async (a: 'keep_new' | 'keep_old' | 'keep_both') => {
     setActing(true);
     await onResolve(a);
     setActing(false);
   };
+
+  async function arbitrate() {
+    setArbitrating(true);
+    setArbitrateErr(null);
+    try {
+      const v = await api.solveCandidate(newQ.stem, newQ.options);
+      setAiVerdict(v);
+    } catch (e) {
+      setArbitrateErr(String(e));
+    } finally {
+      setArbitrating(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <Box variant="thick" className="p-3 bg-chip-cream">
         <p className="font-cn font-bold text-sm">⚠️ 题库里有相似题，选一个动作</p>
       </Box>
+
+      {hasAnswerConflict && (
+        <Box variant="dashed" className="p-3">
+          <p className="font-cn text-xs font-bold mb-2">答案不一致，可以让 AI 仲裁帮你判断</p>
+          {!aiVerdict && (
+            <Button onClick={arbitrate} disabled={arbitrating} variant="primary" className="w-full justify-center text-xs">
+              {arbitrating ? '🤖 AI 思考中…' : '🤖 让 AI 看看哪个答案对'}
+            </Button>
+          )}
+          {arbitrateErr && <p className="font-cn text-xs text-accent mt-1">{arbitrateErr}</p>}
+          {aiVerdict && (
+            <div className="mt-2">
+              <p className="font-cn text-sm font-bold">AI 的判断：<span className="text-accent-4">{aiVerdict.answer}</span></p>
+              <p className="font-cn text-xs text-ink-2 mt-1">{aiVerdict.explanation}</p>
+            </div>
+          )}
+        </Box>
+      )}
 
       <Box variant="soft" className="p-3">
         <div className="font-cn text-xs text-ink-2 mb-1">你刚加的（新）</div>

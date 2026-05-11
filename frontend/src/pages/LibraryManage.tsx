@@ -73,6 +73,15 @@ export function LibraryManage() {
                   <Chip>{q.source}</Chip>
                   <span className="font-cn text-ink-2">{'★'.repeat(q.difficulty)}</span>
                   {q.tags.length > 0 && <span className="font-cn text-ink-2">{q.tags.join(' · ')}</span>}
+                  {q.accuracy != null && q.accuracy < 1 && (
+                    <span
+                      className={`font-cn text-xs font-bold ${
+                        q.accuracy < 0.5 ? 'text-accent' : q.accuracy < 0.9 ? 'text-accent-2' : 'text-accent-4'
+                      }`}
+                    >
+                      准确率 {(q.accuracy * 100).toFixed(0)}% ({q.attemptCorrect}/{q.attemptTotal})
+                    </span>
+                  )}
                 </div>
                 <div className="font-cn text-xs text-ink-2 mt-1">
                   答案：{q.answer || <span className="text-accent">&lt;空&gt;</span>}

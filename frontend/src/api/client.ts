@@ -42,6 +42,9 @@ export type Question = {
   tags: string[];
   difficulty: number;
   source: QuestionSource;
+  attemptTotal?: number;
+  attemptCorrect?: number;
+  accuracy?: number | null;
 };
 
 export type CandidateQuestion = {
