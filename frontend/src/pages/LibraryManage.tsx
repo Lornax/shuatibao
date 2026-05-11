@@ -10,11 +10,15 @@ import { Layout } from '../components/Layout';
 
 const KEYS = ['A', 'B', 'C', 'D'] as const;
 
+type SearchScope = 'all' | 'stem' | 'tag' | 'chapter';
+const CHAPTER_PREFIX = '章节:';
+
 export function LibraryManage() {
   const { pid } = useParams<{ pid: string }>();
   const nav = useNavigate();
   const [list, setList] = useState<Question[] | null>(null);
   const [search, setSearch] = useState('');
+  const [scope, setScope] = useState<SearchScope>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,13 +44,37 @@ export function LibraryManage() {
   const filtered = list?.filter((q) => {
     if (!search.trim()) return true;
     const s = search.trim();
-    return q.stem.includes(s) || q.tags.some((t) => t.includes(s));
+    const inStem = q.stem.includes(s);
+    const chapterTag = q.tags.find((t) => t.startsWith(CHAPTER_PREFIX));
+    const chapterText = chapterTag ? chapterTag.slice(CHAPTER_PREFIX.length) : '';
+    const inChapter = chapterText.includes(s);
+    const inOtherTag = q.tags.some((t) => !t.startsWith(CHAPTER_PREFIX) && t.includes(s));
+    if (scope === 'stem') return inStem;
+    if (scope === 'tag') return inOtherTag;
+    if (scope === 'chapter') return inChapter;
+    return inStem || inOtherTag || inChapter;
   }) ?? [];
 
   return (
     <Layout title={`题库 (${list?.length ?? 0})`} back={() => nav(`/profiles/${pid}`)}>
       <div className="space-y-3">
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜题干 / 标签..." />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={
+            scope === 'stem' ? '搜题干...' :
+            scope === 'tag' ? '搜个人标签...' :
+            scope === 'chapter' ? '搜章节...' :
+            '搜全部（题干 / 标签 / 章节）...'
+          }
+        />
+        <div className="flex gap-1 flex-wrap">
+          {(['all', 'stem', 'chapter', 'tag'] as SearchScope[]).map((s) => (
+            <Chip key={s} active={scope === s} onClick={() => setScope(s)}>
+              {s === 'all' ? '全部' : s === 'stem' ? '只搜题干' : s === 'chapter' ? '只搜章节' : '只搜标签'}
+            </Chip>
+          ))}
+        </div>
         {error && (
           <Box variant="dashed" className="p-2">
             <p className="font-cn text-xs text-accent">{error}</p>
