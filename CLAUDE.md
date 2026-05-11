@@ -107,7 +107,24 @@ learn-or-die-linephoto/  # 线框图（Claude Design 输出）
 6. **遵守 Superpowers 流程**：brainstorming → design doc → plan → subagent development → TDD → code review → finish branch。不允许跳过 brainstorming 和 planning 阶段直接写代码。
 
 ## Tech Debt
-_暂无（项目未启动开发）。_
+- PDF 导入是同步阻塞调用，单次 LLM 输出有 token 上限，**大 PDF（>20 题）会卡死请求**。v0.0.2.2 整改：拆批 + 异步任务 + 真进度推送。
+
+## v0.0.2.1 hotfix（2026-05-09，使用反馈驱动）
+
+修复 v0.0.2 真实使用暴露的体验/数据正确性问题：
+- **拍照识题答案歧义**：原文无答案时 AI 不再编造（返回 ""），编辑确认页显示「AI 没识别答案」+「让 AI 解一下」按钮
+- **查重 UX 大改**：弹窗显示新旧题完整对比（题干+选项+答案），答案不一致红字警告，单题 3 决策（保留新删旧/丢弃新留旧/都保留），PDF 多题场景顶部加批量按钮（全部都保留/全部跳过相似的）
+- **AI 出题改进**：加教材章节 + 考点关键词输入框；prompt 紧扣这些上下文；去掉默认 NPDP 标签（档案已是 NPDP，冗余）；显示历史标签 chip 让用户点击复用
+- **题库管理 UI**：新页面 `/profiles/:pid/library` 支持搜索/编辑/删除题目（避免 AI 污染数据没法清理）
+- **LLM 调用 staged loading**：拍照/出题/AI 解题分阶段显示思考过程，规避"是不是卡了"的焦虑
+- **新端点**：`DELETE /api/questions/:id`、`PATCH /api/questions/:id`、`POST /api/solve-candidate`、`POST /api/questions/:qid/solve`、`GET /api/profiles/:pid/tags`
+
+## v0.0.2 完工特性（2026-05-09）
+
+- 4 个加题入口：手输 / 拍照识题（qwen-vl-max）/ PDF 导入（qwen-max）/ AI 生成（qwen-max）
+- 编辑确认页（4 入口共用），支持单题或队列模式
+- 查重：保存时自动算 embedding，与同档案下其他题做余弦相似度，≥0.85 提示
+- AI 走 dashscope OpenAI 兼容 endpoint，3 个模型一份 key
 
 ## v2 踩过的具体雷（备查）
 
