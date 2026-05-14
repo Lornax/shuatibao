@@ -321,6 +321,9 @@ function CandidateRow({
   disabled: boolean;
 }) {
   const missingAnswer = !candidate.answer;
+  const answerText = missingAnswer
+    ? ''
+    : (candidate.options.find((o) => o.key === candidate.answer)?.text ?? '');
   return (
     <Box variant="soft" className="p-3">
       <div className="flex items-start gap-2">
@@ -329,18 +332,23 @@ function CandidateRow({
           <p className="font-cn text-sm leading-relaxed line-clamp-2 break-words">
             {candidate.stem}
           </p>
-          <div className="flex items-center gap-1 mt-1">
+          <div className="flex items-center gap-1.5 mt-1 min-w-0">
             {missingAnswer ? (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-accent text-accent text-[10px] font-handBold leading-none bg-white">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-accent text-accent text-[10px] font-handBold leading-none bg-white shrink-0">
                 缺答案
               </span>
             ) : (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-ink text-ink text-[10px] font-handBold leading-none bg-chip-green">
-                ✓ 答案 {candidate.answer}
-              </span>
+              <>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-ink text-ink text-[10px] font-handBold leading-none bg-chip-green shrink-0">
+                  ✓ {candidate.answer}
+                </span>
+                <span className="font-cn text-[11px] text-ink-2 truncate flex-1 min-w-0">
+                  {answerText}
+                </span>
+              </>
             )}
-            <span className="font-cn text-[11px] text-ink-3">
-              难度 {'★'.repeat(candidate.difficulty)}
+            <span className="font-cn text-[11px] text-ink-3 shrink-0">
+              {'★'.repeat(candidate.difficulty)}
             </span>
           </div>
         </Link>
