@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
 import { chunkPdfText } from '../lib/pdf-chunker.js';
@@ -108,8 +108,22 @@ router.get('/profiles/:pid/import-jobs', async (c) => {
     ? (statusParam.split(',').filter((s) => (allowed as readonly string[]).includes(s)) as S[])
     : (allowed as readonly S[]).slice();
 
+  // exclude the candidates jsonb — it can be megabytes for a fully
+  // recognized PDF, and list views only need metadata + count
   const rows = await db
-    .select()
+    .select({
+      id: schema.importJobs.id,
+      status: schema.importJobs.status,
+      kind: schema.importJobs.kind,
+      filename: schema.importJobs.filename,
+      totalChunks: schema.importJobs.totalChunks,
+      doneChunks: schema.importJobs.doneChunks,
+      candidatesCount: sql<number>`coalesce(jsonb_array_length(${schema.importJobs.candidates}), 0)::int`,
+      error: schema.importJobs.error,
+      createdAt: schema.importJobs.createdAt,
+      startedAt: schema.importJobs.startedAt,
+      finishedAt: schema.importJobs.finishedAt,
+    })
     .from(schema.importJobs)
     .where(
       and(
@@ -119,7 +133,7 @@ router.get('/profiles/:pid/import-jobs', async (c) => {
     )
     .orderBy(desc(schema.importJobs.createdAt));
 
-  return c.json({ jobs: rows.map(serializeJob) });
+  return c.json({ jobs: rows });
 });
 
 router.get('/profiles/:pid/import-jobs/:jid', async (c) => {

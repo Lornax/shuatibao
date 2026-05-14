@@ -104,6 +104,7 @@ router.get('/profiles/:pid/wrongbook', async (c) => {
 router.get('/profiles/:pid/quiz/next', async (c) => {
   const userId = c.get('userId');
   const pid = c.req.param('pid');
+  const wrongOnly = c.req.query('wrong_only') === 'true';
 
   const [profile] = await db
     .select()
@@ -112,7 +113,12 @@ router.get('/profiles/:pid/quiz/next', async (c) => {
     .limit(1);
   if (!profile || profile.userId !== userId) return c.json({ error: 'not_found' }, 404);
 
-  // v0.0.1 简化策略：随机抽一道未答过 OR 上次答错的题
+  // Default mode (mixed): 抽一道 未答过 OR 上次答错 的题
+  // wrong_only mode: 只抽 上次答错 的题（排除未答过）—— 错题本「再练一遍」用
+  const whereClause = wrongOnly
+    ? sql`latest.is_correct = false`
+    : sql`(latest.is_correct IS NULL OR latest.is_correct = false)`;
+
   const result = await db.execute<{
     id: string;
     stem: string;
@@ -129,7 +135,7 @@ router.get('/profiles/:pid/quiz/next', async (c) => {
       LIMIT 1
     ) latest ON TRUE
     WHERE q.profile_id = ${pid}
-      AND (latest.is_correct IS NULL OR latest.is_correct = false)
+      AND ${whereClause}
     ORDER BY RANDOM()
     LIMIT 1
   `);

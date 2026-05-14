@@ -63,15 +63,21 @@ export async function generateQuestionFromPrompt(
   return parseCandidateOrThrow(raw);
 }
 
-export async function structureQuestionsFromPdfText(pdfText: string): Promise<CandidateQuestion[]> {
-  const r = await client.chat.completions.create({
-    model: MODEL_TEXT,
-    messages: [
-      { role: 'system', content: PDF_STRUCTURE_PROMPT },
-      { role: 'user', content: pdfText },
-    ],
-    temperature: 0.1,
-  });
+export async function structureQuestionsFromPdfText(
+  pdfText: string,
+  opts: { signal?: AbortSignal } = {},
+): Promise<CandidateQuestion[]> {
+  const r = await client.chat.completions.create(
+    {
+      model: MODEL_TEXT,
+      messages: [
+        { role: 'system', content: PDF_STRUCTURE_PROMPT },
+        { role: 'user', content: pdfText },
+      ],
+      temperature: 0.1,
+    },
+    { signal: opts.signal },
+  );
   const raw = r.choices[0]?.message?.content ?? '';
   return parseCandidateArrayOrThrow(raw);
 }

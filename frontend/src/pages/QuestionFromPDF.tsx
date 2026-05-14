@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api, type ImportJob } from '../api/client';
+import { api, type ImportJobSummary } from '../api/client';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
 import { Layout } from '../components/Layout';
@@ -11,7 +11,7 @@ export function QuestionFromPDF() {
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [existingJob, setExistingJob] = useState<ImportJob | null>(null);
+  const [existingJob, setExistingJob] = useState<ImportJobSummary | null>(null);
 
   useEffect(() => {
     if (!pid) return;
@@ -40,7 +40,20 @@ export function QuestionFromPDF() {
       } else if (res.conflict) {
         // refresh the inflight banner with the existing job so user can see what's blocking
         const j = await api.getImportJob(pid!, res.existingJobId);
-        setExistingJob(j);
+        const summary: ImportJobSummary = {
+          id: j.id,
+          status: j.status,
+          kind: j.kind,
+          filename: j.filename,
+          totalChunks: j.totalChunks,
+          doneChunks: j.doneChunks,
+          candidatesCount: j.candidates.length,
+          error: j.error,
+          createdAt: j.createdAt,
+          startedAt: j.startedAt,
+          finishedAt: j.finishedAt,
+        };
+        setExistingJob(summary);
         setSubmitting(false);
       }
     } catch (e) {
@@ -56,7 +69,7 @@ export function QuestionFromPDF() {
           <Box variant="thick" className="p-3 bg-chip-pink">
             <p className="font-handBold text-sm mb-1">⚠ 当前已有一份 PDF 在解析中</p>
             <p className="font-cn text-xs text-ink-2 mb-2 truncate">
-              {existingJob.filename} · {existingJob.doneChunks} / {existingJob.totalChunks} 批 · 已识别 {existingJob.candidates.length} 题
+              {existingJob.filename} · {existingJob.doneChunks} / {existingJob.totalChunks} 批 · 已识别 {existingJob.candidatesCount} 题
             </p>
             <p className="font-cn text-xs text-ink-2 mb-2">
               同档案同一时间只允许 1 份导入，等它结束（或在进度页取消它）后再传新文件。

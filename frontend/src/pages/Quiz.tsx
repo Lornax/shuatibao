@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, type Question } from '../api/client';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
@@ -29,6 +29,8 @@ type Live =
 export function Quiz() {
   const { pid } = useParams<{ pid: string }>();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
+  const wrongOnly = searchParams.get('mode') === 'wrong';
   const [history, setHistory] = useState<AnsweredRecord[]>([]);
   const [live, setLive] = useState<Live>({ kind: 'loading' });
   const [viewing, setViewing] = useState<number | 'live'>('live');
@@ -54,7 +56,7 @@ export function Quiz() {
     setLive({ kind: 'loading' });
     setViewing('live');
     try {
-      const next = await api.nextQuiz(pid);
+      const next = await api.nextQuiz(pid, { wrongOnly });
       if ('done' in next && next.done) {
         setLive({ kind: 'done' });
       } else {
@@ -127,7 +129,14 @@ export function Quiz() {
   const currentSlot = viewing === 'live' ? history.length + 1 : (viewing as number) + 1;
 
   return (
-    <Layout title="答题" back={() => nav(`/profiles/${pid}`)}>
+    <Layout title={wrongOnly ? '错题模式' : '答题'} back={() => nav(`/profiles/${pid}`)}>
+      {wrongOnly && (
+        <Box variant="dashed" className="p-2 mb-2 bg-chip-pink">
+          <p className="font-cn text-xs">
+            🎯 错题模式：只刷你之前答错过的题，答对一次就从错题本移除。
+          </p>
+        </Box>
+      )}
       <Box variant="soft" className="p-2 mb-3 bg-chip-cream">
         <div className="flex items-center justify-between text-xs font-cn">
           <span>
@@ -211,6 +220,11 @@ export function Quiz() {
             isCorrect: live.isCorrect,
             explanation: live.explanation,
           }}
+          onAiSolved={(text) =>
+            setLive((prev) =>
+              prev.kind === 'revealed' ? { ...prev, explanation: text } : prev,
+            )
+          }
         >
           <div className="flex gap-2">
             <Button
@@ -236,7 +250,15 @@ export function Quiz() {
       )}
 
       {typeof viewing === 'number' && (
-        <RevealedView record={history[viewing]} readOnlyBanner>
+        <RevealedView
+          record={history[viewing]}
+          readOnlyBanner
+          onAiSolved={(text) =>
+            setHistory((h) =>
+              h.map((r, i) => (i === viewing ? { ...r, explanation: text } : r)),
+            )
+          }
+        >
           <div className="flex gap-2">
             <Button
               variant="ghost"
@@ -267,12 +289,32 @@ function Stem({ stem }: { stem: string }) {
 function RevealedView({
   record,
   readOnlyBanner,
+  onAiSolved,
   children,
 }: {
   record: AnsweredRecord;
   readOnlyBanner?: boolean;
+  onAiSolved: (explanation: string) => void;
   children: React.ReactNode;
 }) {
+  const [solving, setSolving] = useState(false);
+  const [solveErr, setSolveErr] = useState<string | null>(null);
+
+  async function aiSolve() {
+    setSolving(true);
+    setSolveErr(null);
+    try {
+      const r = await api.solveQuestionById(record.q.id);
+      onAiSolved(r.explanation);
+      // persist to DB so future views (library / wrongbook) see it too
+      api.patchQuestion(record.q.id, { explanation: r.explanation }).catch(() => {});
+    } catch (e) {
+      setSolveErr(String(e));
+    } finally {
+      setSolving(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       {readOnlyBanner && (
@@ -305,9 +347,20 @@ function RevealedView({
         {record.explanation ? (
           <p className="font-cn text-sm whitespace-pre-wrap">{record.explanation}</p>
         ) : (
-          <p className="font-cn text-sm text-ink-3">
-            暂无解析。可以去题库管理里给这题手动补一条解析。
-          </p>
+          <>
+            <p className="font-cn text-sm text-ink-3 mb-2">暂无解析。</p>
+            <Button
+              variant="primary"
+              onClick={aiSolve}
+              disabled={solving}
+              className="w-full justify-center"
+            >
+              {solving ? '🤖 AI 思考中…' : '🤖 让 AI 解一下'}
+            </Button>
+            {solveErr && (
+              <p className="font-cn text-xs text-accent mt-1 break-words">{solveErr}</p>
+            )}
+          </>
         )}
       </Box>
       {children}

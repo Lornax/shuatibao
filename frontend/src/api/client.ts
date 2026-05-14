@@ -68,18 +68,22 @@ export type SimilarQuestion = {
 
 export type ImportJobStatus = 'pending' | 'running' | 'completed' | 'failed';
 
-export type ImportJob = {
+export type ImportJobSummary = {
   id: string;
   status: ImportJobStatus;
   kind: string;
   filename: string;
   totalChunks: number;
   doneChunks: number;
-  candidates: CandidateQuestion[];
+  candidatesCount: number;
   error: string | null;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
+};
+
+export type ImportJob = ImportJobSummary & {
+  candidates: CandidateQuestion[];
 };
 
 export type WrongItem = {
@@ -162,7 +166,7 @@ export const api = {
     request<ImportJob>(`/profiles/${pid}/import-jobs/${jid}`),
 
   listImportJobs: (pid: string, statuses?: ImportJobStatus[]) =>
-    request<{ jobs: ImportJob[] }>(
+    request<{ jobs: ImportJobSummary[] }>(
       `/profiles/${pid}/import-jobs${statuses ? `?status=${statuses.join(',')}` : ''}`,
     ),
 
@@ -195,7 +199,16 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ stem, options }) },
     ),
 
-  nextQuiz: (pid: string) => request<Question | { done: true }>(`/profiles/${pid}/quiz/next`),
+  solveQuestionById: (qid: string) =>
+    request<{ answer: string; explanation: string }>(
+      `/questions/${qid}/solve`,
+      { method: 'POST' },
+    ),
+
+  nextQuiz: (pid: string, opts: { wrongOnly?: boolean } = {}) =>
+    request<Question | { done: true }>(
+      `/profiles/${pid}/quiz/next${opts.wrongOnly ? '?wrong_only=true' : ''}`,
+    ),
   submitAttempt: (qid: string, input: { chosen: string; timeSpentMs?: number }) =>
     request<{
       attempt: { id: string; isCorrect: boolean; chosen: string };

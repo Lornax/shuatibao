@@ -50,8 +50,8 @@ export function WrongBook() {
       </div>
       {list && list.length > 0 && (
         <div className="mt-4">
-          <Button variant="primary" onClick={() => nav(`/profiles/${pid}/quiz`)} className="w-full justify-center">
-            再练一遍 →
+          <Button variant="primary" onClick={() => nav(`/profiles/${pid}/quiz?mode=wrong`)} className="w-full justify-center">
+            再练一遍（只刷错题） →
           </Button>
         </div>
       )}

@@ -9,14 +9,16 @@ import type { CandidateQuestion } from '../ai/parser.js';
  * pending/running rows are flipped to failed by self-heal in index.ts.
  */
 const chunksByJobId = new Map<string, string[]>();
-const cancelledJobs = new Set<string>();
+const abortersByJobId = new Map<string, AbortController>();
 
 export function registerJobChunks(jobId: string, chunks: string[]) {
   chunksByJobId.set(jobId, chunks);
 }
 
 export function cancelJob(jobId: string) {
-  cancelledJobs.add(jobId);
+  // abort the in-flight LLM fetch immediately — the worker's catch will
+  // observe AbortError and mark the job failed('cancelled')
+  abortersByJobId.get(jobId)?.abort();
 }
 
 /**
@@ -36,24 +38,15 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
     .set({ status: 'running', startedAt: new Date() })
     .where(eq(schema.importJobs.id, jobId));
 
+  const abortCtl = new AbortController();
+  abortersByJobId.set(jobId, abortCtl);
+
   const candidates: CandidateQuestion[] = [];
   try {
     for (let i = 0; i < chunks.length; i++) {
-      if (cancelledJobs.has(jobId)) {
-        await db
-          .update(schema.importJobs)
-          .set({
-            status: 'failed',
-            error: 'cancelled',
-            finishedAt: new Date(),
-            candidates: candidates as unknown[],
-          })
-          .where(eq(schema.importJobs.id, jobId));
-        return;
-      }
       const chunk = chunks[i];
       const t0 = Date.now();
-      const part = await structureQuestionsFromPdfText(chunk);
+      const part = await structureQuestionsFromPdfText(chunk, { signal: abortCtl.signal });
       const dt = Date.now() - t0;
       console.log(
         `[import-jobs ${jobId.slice(0, 8)}] chunk ${i + 1}/${chunks.length}: ${chunk.length} chars → ${part.length} items (${dt}ms)`,
@@ -72,18 +65,19 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
       .set({ status: 'completed', finishedAt: new Date() })
       .where(eq(schema.importJobs.id, jobId));
   } catch (e) {
+    const isAbort = abortCtl.signal.aborted;
     await db
       .update(schema.importJobs)
       .set({
         status: 'failed',
-        error: String(e),
+        error: isAbort ? 'cancelled' : String(e),
         finishedAt: new Date(),
         candidates: candidates as unknown[],
       })
       .where(eq(schema.importJobs.id, jobId));
   } finally {
     chunksByJobId.delete(jobId);
-    cancelledJobs.delete(jobId);
+    abortersByJobId.delete(jobId);
   }
 }
 

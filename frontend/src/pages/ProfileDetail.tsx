@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, type ImportJob, type Profile, type Question } from '../api/client';
+import { api, type ImportJobSummary, type Profile, type Question } from '../api/client';
 import { Box } from '../components/Box';
 import { Layout } from '../components/Layout';
 
@@ -9,7 +9,7 @@ export function ProfileDetail() {
   const nav = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
-  const [inflightJobs, setInflightJobs] = useState<ImportJob[]>([]);
+  const [inflightJobs, setInflightJobs] = useState<ImportJobSummary[]>([]);
 
   useEffect(() => {
     if (!pid) return;
@@ -26,7 +26,7 @@ export function ProfileDetail() {
             (j) =>
               j.status === 'pending' ||
               j.status === 'running' ||
-              j.candidates.length > 0,
+              j.candidatesCount > 0,
           ),
         ),
       )
@@ -45,10 +45,10 @@ export function ProfileDetail() {
               ? `/profiles/${pid}/import-jobs/${j.id}`
               : `/profiles/${pid}/import-jobs/${j.id}/review`;
             const tagClass = isRunning ? 'bg-chip-blue' : 'bg-chip-green';
-            const tagLabel = isRunning ? 'PDF 解析中' : `${j.candidates.length} 道待审`;
+            const tagLabel = isRunning ? 'PDF 解析中' : `${j.candidatesCount} 道待审`;
             const subLine = isRunning
-              ? `${j.doneChunks} / ${j.totalChunks} 批 · 已识别 ${j.candidates.length} 题`
-              : `共 ${j.candidates.length} 道，点击继续审`;
+              ? `${j.doneChunks} / ${j.totalChunks} 批 · 已识别 ${j.candidatesCount} 题`
+              : `共 ${j.candidatesCount} 道，点击继续审`;
             return (
               <Link key={j.id} to={to}>
                 <Box variant="thick" className="p-2 bg-chip-cream flex items-center gap-2">
