@@ -43,20 +43,37 @@ export function QuestionFromImage() {
     <Layout title="拍照识题" back={() => nav(`/profiles/${pid}/questions/new`)}>
       <div className="space-y-3">
         <p className="font-cn text-sm text-ink-2">
-          从相册选一张题目截图 / 拍照，AI 自动识别题干、选项、答案。
+          拍一张或从相册选一张题目图，AI 自动识别题干、选项、答案。
         </p>
-        <label className="block">
-          <Box variant="dashed" className="p-6 text-center cursor-pointer hover:bg-chip-cream">
-            <p className="font-cn text-sm">{file ? file.name : '点这里选图（或拍照）'}</p>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={pick}
-              className="hidden"
-            />
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <Box variant="dashed" className="p-4 text-center cursor-pointer hover:bg-chip-cream">
+              <p className="font-cn text-sm">📸 拍照</p>
+              <p className="font-cn text-[11px] text-ink-3 mt-0.5">手机直接开相机</p>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={pick}
+                className="hidden"
+              />
+            </Box>
+          </label>
+          <label className="block">
+            <Box variant="dashed" className="p-4 text-center cursor-pointer hover:bg-chip-cream">
+              <p className="font-cn text-sm">🖼 从相册选</p>
+              <p className="font-cn text-[11px] text-ink-3 mt-0.5">已有的图片</p>
+              <input type="file" accept="image/*" onChange={pick} className="hidden" />
+            </Box>
+          </label>
+        </div>
+        {file && (
+          <Box variant="soft" className="p-2 bg-chip-cream">
+            <p className="font-cn text-xs text-ink-2 truncate">
+              已选：{file.name} · {(file.size / 1024).toFixed(0)}KB
+            </p>
           </Box>
-        </label>
+        )}
         {preview && (
           <Box variant="soft" className="p-2">
             <img src={preview} alt="preview" className="w-full max-h-80 object-contain" />

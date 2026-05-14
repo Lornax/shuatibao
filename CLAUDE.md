@@ -110,6 +110,15 @@ learn-or-die-linephoto/  # 线框图（Claude Design 输出）
 - **PDF 原文件下载**：当前 import-jobs 不保存 PDF 二进制（只 pdf-parse 出文本就丢），用户审到一半想再看原文没法看。**待 v0.0.2.5 部署 VPS 时一起做**：上传时把文件流式推到腾讯云北京 COS（bucket `zp1-1428145534`），URL 存进 `import_jobs.sourceMeta.cosUrl`，待审队列页 + 题库管理页加下载链接。
 - **PDF 识别完整性**：100+ 题真题被解出 54 道，存在丢失。Round 2 加了 per-chunk 日志（`chars → items` + 耗时）便于诊断；根因可能是 pdf-parse 文本提取丢字、chunker 边界切到题干中间、或 LLM 在某些 chunk 返回 `[]`。等用户传一份 PDF 把日志贴回来定位。
 
+## v0.0.2.6（2026-05-14，Quiz 答题页打磨 + 拍照入口拆分）
+
+补 v0.0.2.5 真实使用时暴露的 Quiz 页 + 拍照入口体验问题，为部署上 VPS + 手机端使用做准备。
+
+- **Quiz 加 history 栈 + 「← 上一题」按钮**：state 改成 history + live + viewing 三段，回看已答过的题（只读：显示 chosen / correct / explanation），「下一题 →」可在历史/当前之间跳。
+- **Quiz 顶部显示进度**：「本次第 K 道 · 剩 R 道未掌握 / 共 N 道」（R = listQuestions 里 accuracy<1 OR attemptTotal==0 的数，每答完一道实时刷新）。
+- **Quiz 答错也显示解析 Box**：原来 explanation 为空整个 Box 隐身；现在始终渲染，空时显示「暂无解析，可去题库管理补一条」。
+- **拍照页拆「📸 拍照 / 🖼 从相册选」两个按钮**：原一个 input 加 `capture=environment` 在桌面端语义混乱。两按钮明确：拍照按钮 capture=environment（手机直接开相机），相册按钮不加 capture。
+
 ## v0.0.2.5（2026-05-14，PDF 异步导入 + 真实使用反馈打磨）
 
 把 v0.0.2 同步阻塞的 PDF 导入改成异步任务模型，解决大 PDF（>20 题）被 8K 输出 token 截断 + HTTP 网关超时的痛点。**作者本人传一份 100+ 题真题暴露了 10 个产品/UX 问题，全部 Round 2 修完**。
