@@ -135,12 +135,7 @@ export function ImportJobProgress() {
           <Button
             variant="accent"
             className="w-full justify-center"
-            onClick={() =>
-              nav(`/profiles/${pid}/questions/confirm`, {
-                state: { candidates: job.candidates, source: 'pdf' },
-                replace: true,
-              })
-            }
+            onClick={() => nav(`/profiles/${pid}/import-jobs/${jid}/review`, { replace: true })}
           >
             开始审核 {job.candidates.length} 道题 →
           </Button>
@@ -150,12 +145,7 @@ export function ImportJobProgress() {
           <Button
             variant="accent"
             className="w-full justify-center"
-            onClick={() =>
-              nav(`/profiles/${pid}/questions/confirm`, {
-                state: { candidates: job.candidates, source: 'pdf' },
-                replace: true,
-              })
-            }
+            onClick={() => nav(`/profiles/${pid}/import-jobs/${jid}/review`, { replace: true })}
           >
             用现有 {job.candidates.length} 题 →
           </Button>

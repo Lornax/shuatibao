@@ -162,6 +162,12 @@ router.patch('/profiles/:pid/import-jobs/:jid', async (c) => {
     .where(eq(schema.importJobs.id, jid))
     .returning();
 
+  // empty queue: drop the row so it stops cluttering profile detail
+  if (parsed.data.candidates.length === 0) {
+    await db.delete(schema.importJobs).where(eq(schema.importJobs.id, jid));
+    return c.json({ ...serializeJob(updated), deleted: true });
+  }
+
   return c.json(serializeJob(updated));
 });
 

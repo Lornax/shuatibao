@@ -103,7 +103,7 @@ export function QuestionConfirm() {
   );
 }
 
-function ConfirmOne({
+export function ConfirmOne({
   pid,
   candidate,
   source,

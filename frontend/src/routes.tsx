@@ -11,6 +11,8 @@ import { QuestionFromPrompt } from './pages/QuestionFromPrompt';
 import { QuestionConfirm } from './pages/QuestionConfirm';
 import { LibraryManage } from './pages/LibraryManage';
 import { ImportJobProgress } from './pages/ImportJobProgress';
+import { ReviewQueue } from './pages/ReviewQueue';
+import { ReviewItem } from './pages/ReviewItem';
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/profiles" replace /> },
@@ -26,4 +28,6 @@ export const router = createBrowserRouter([
   { path: '/profiles/:pid/questions/confirm', element: <QuestionConfirm /> },
   { path: '/profiles/:pid/library', element: <LibraryManage /> },
   { path: '/profiles/:pid/import-jobs/:jid', element: <ImportJobProgress /> },
+  { path: '/profiles/:pid/import-jobs/:jid/review', element: <ReviewQueue /> },
+  { path: '/profiles/:pid/import-jobs/:jid/review/:idx', element: <ReviewItem /> },
 ]);

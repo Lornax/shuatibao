@@ -18,8 +18,18 @@ export function ProfileDetail() {
       setQuestions(qs);
     });
     api
-      .listImportJobs(pid, ['pending', 'running'])
-      .then((r) => setInflightJobs(r.jobs))
+      .listImportJobs(pid, ['pending', 'running', 'completed', 'failed'])
+      // hide failed+empty rows; show running/pending always; show completed/failed if there are still candidates to review
+      .then((r) =>
+        setInflightJobs(
+          r.jobs.filter(
+            (j) =>
+              j.status === 'pending' ||
+              j.status === 'running' ||
+              j.candidates.length > 0,
+          ),
+        ),
+      )
       .catch(() => setInflightJobs([]));
   }, [pid]);
 
@@ -29,23 +39,32 @@ export function ProfileDetail() {
     <Layout title={profile.examName} back={() => nav('/profiles')}>
       {inflightJobs.length > 0 && (
         <div className="mb-3 space-y-2">
-          {inflightJobs.map((j) => (
-            <Link key={j.id} to={`/profiles/${pid}/import-jobs/${j.id}`}>
-              <Box variant="thick" className="p-2 bg-chip-cream flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 border border-ink rounded-full bg-chip-blue px-2 py-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                  <span className="font-handBold text-xs leading-none">PDF 导入中</span>
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-cn text-xs truncate">{j.filename}</p>
-                  <p className="font-cn text-[11px] text-ink-3">
-                    {j.doneChunks} / {j.totalChunks} 段 · 已识别 {j.candidates.length} 题
-                  </p>
-                </div>
-                <span className="font-handBold text-base">›</span>
-              </Box>
-            </Link>
-          ))}
+          {inflightJobs.map((j) => {
+            const isRunning = j.status === 'pending' || j.status === 'running';
+            const to = isRunning
+              ? `/profiles/${pid}/import-jobs/${j.id}`
+              : `/profiles/${pid}/import-jobs/${j.id}/review`;
+            const tagClass = isRunning ? 'bg-chip-blue' : 'bg-chip-green';
+            const tagLabel = isRunning ? 'PDF 解析中' : `${j.candidates.length} 道待审`;
+            const subLine = isRunning
+              ? `${j.doneChunks} / ${j.totalChunks} 批 · 已识别 ${j.candidates.length} 题`
+              : `共 ${j.candidates.length} 道，点击继续审`;
+            return (
+              <Link key={j.id} to={to}>
+                <Box variant="thick" className="p-2 bg-chip-cream flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 border border-ink rounded-full ${tagClass} px-2 py-0.5`}>
+                    {isRunning && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />}
+                    <span className="font-handBold text-xs leading-none">{tagLabel}</span>
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-cn text-xs truncate">{j.filename}</p>
+                    <p className="font-cn text-[11px] text-ink-3">{subLine}</p>
+                  </div>
+                  <span className="font-handBold text-base">›</span>
+                </Box>
+              </Link>
+            );
+          })}
         </div>
       )}
 
