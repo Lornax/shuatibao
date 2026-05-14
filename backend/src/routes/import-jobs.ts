@@ -66,6 +66,9 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
 
   const chunks = chunkPdfText(text);
   if (chunks.length === 0) return c.json({ error: 'pdf_no_text' }, 400);
+  console.log(
+    `[import-jobs] new pdf: ${file.name} · ${(file.size / 1024 / 1024).toFixed(1)}MB · ${text.length} chars → ${chunks.length} chunks`,
+  );
 
   const [job] = await db
     .insert(schema.importJobs)

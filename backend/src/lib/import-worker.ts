@@ -52,7 +52,12 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
         return;
       }
       const chunk = chunks[i];
+      const t0 = Date.now();
       const part = await structureQuestionsFromPdfText(chunk);
+      const dt = Date.now() - t0;
+      console.log(
+        `[import-jobs ${jobId.slice(0, 8)}] chunk ${i + 1}/${chunks.length}: ${chunk.length} chars → ${part.length} items (${dt}ms)`,
+      );
       candidates.push(...part);
       await db
         .update(schema.importJobs)
