@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, type Profile, type Question } from '../api/client';
+import { api, type ImportJob, type Profile, type Question } from '../api/client';
 import { Box } from '../components/Box';
 import { Layout } from '../components/Layout';
 
@@ -9,6 +9,7 @@ export function ProfileDetail() {
   const nav = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
+  const [inflightJobs, setInflightJobs] = useState<ImportJob[]>([]);
 
   useEffect(() => {
     if (!pid) return;
@@ -16,12 +17,38 @@ export function ProfileDetail() {
       setProfile(p);
       setQuestions(qs);
     });
+    api
+      .listImportJobs(pid, ['pending', 'running'])
+      .then((r) => setInflightJobs(r.jobs))
+      .catch(() => setInflightJobs([]));
   }, [pid]);
 
   if (!profile || !questions) return <Layout title="加载中" back={() => nav('/profiles')}>...</Layout>;
 
   return (
     <Layout title={profile.examName} back={() => nav('/profiles')}>
+      {inflightJobs.length > 0 && (
+        <div className="mb-3 space-y-2">
+          {inflightJobs.map((j) => (
+            <Link key={j.id} to={`/profiles/${pid}/import-jobs/${j.id}`}>
+              <Box variant="thick" className="p-2 bg-chip-cream flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 border border-ink rounded-full bg-chip-blue px-2 py-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                  <span className="font-handBold text-xs leading-none">PDF 导入中</span>
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-cn text-xs truncate">{j.filename}</p>
+                  <p className="font-cn text-[11px] text-ink-3">
+                    {j.doneChunks} / {j.totalChunks} 段 · 已识别 {j.candidates.length} 题
+                  </p>
+                </div>
+                <span className="font-handBold text-base">›</span>
+              </Box>
+            </Link>
+          ))}
+        </div>
+      )}
+
       <Box variant="thick" className="p-3 mb-3 bg-chip-cream">
         <div className="font-cn text-xs text-ink-2">
           {profile.examDate
