@@ -232,3 +232,48 @@ export const importJobs = pgTable('import_jobs', {
 - **风险 2**：worker 没 catch 住的 throw 让 Node unhandledRejection。**Mitigation**：`setImmediate(() => processPdfImportJob(jobId).catch(err => { ... 写 failed + error })`。
 - **风险 3**：drizzle migration 应用失败破坏现有库。**Mitigation**：先在本地 dev 验证，VPS 部署再做（v0.0.2.5 不要求部署）。
 - **回退**：tag v0.0.2.4 是当前完工状态，任何阶段出错可 `git reset --hard v0.0.2.4` 回退。
+
+---
+
+# Round 2（2026-05-14，真实使用反馈驱动）
+
+第 1 轮做完，作者本人测了一份 100+ 题的 NPDP PDF，暴露 10 个产品/UX 问题。本节把这 10 条作为 v0.0.2.5 的同版本增补，不另起版本号。
+
+## 用户反馈对应表
+
+| # | 反馈 | 修法 |
+|---|------|------|
+| ① | "0/8" 让人以为只识别了 8 道题；长时间不跳动以为卡死 | chunk size 3500→1200 让单 chunk 内出题 4-8 道（输出快），文案改"批次"，加预估时间 |
+| ② | 完成后 1s 没自动跳转 | useEffect 依赖 `job?.status` re-run 时 cleanup 把 setTimeout 的 cancelled 守卫设为 true，1s 后 nav 被拒绝。改为不自动跳转 |
+| ③ | "自动跳转 + 按钮"同时显示矛盾 | 去掉自动跳转，只留按钮 |
+| ④ | 一次审 80 道太痛苦 | 改"待审队列"列表模式：列表页 + 单题进 confirm，审一道从 candidates 删一道 |
+| ⑤ | 退出去再进入 candidates 全没（navigation state 内存丢失） | candidates 从 `GET /import-jobs/:jid` 持久化读，不再用 navigation state |
+| ⑥ | Quiz 答错没解析 / 没上一题 / 不知道第几题 | **拆 v0.0.2.6 另做**，与 PDF 异步无关 |
+| ⑦ | 不能终止导入 | 加 `DELETE /import-jobs/:jid` + worker cancel 标志（检查后续 chunk 不再跑）+ 前端按钮 |
+| ⑧ | 重复上传被静默跳到旧 job | 改为明确提示「已有一份 xxx.pdf 在跑，等它结束再传新的」，不自动跳走。**不上排队**——待审堆已经够大 |
+| ⑨ | 题库管理没创建时间，无法筛选 | listQuestions 返回 `createdAt`；列表行显示"3 天前 · PDF"；顶部加日期快捷 chip + 来源多选 chip（前端本地筛选） |
+| ⑩ | PDF 缺答案的题需要逐道点 AI 解，应该批量 | 待审队列顶部检测 `candidates.filter(c => !c.answer)`，显示「⚠ N 道题缺答案 [一键 AI 全部解答]」；client-side 串行调 `/solve-candidate`，每完成 PATCH job.candidates |
+
+## 数据模型变更
+
+- **不动 schema**——`questions.source` enum + `sourceMeta` jsonb 已经足够。未来"市场购买/署名"扩展时往这两处加，不动结构。
+- **新增端点**：
+  - `PATCH /api/profiles/:pid/import-jobs/:jid`（修改 candidates 数组，用于待审队列单题保存进库后移除、AI 批量解答更新 answer/explanation）
+  - `DELETE /api/profiles/:pid/import-jobs/:jid`（取消 running 任务）
+  - `listQuestions` 加 `createdAt` 字段（默认就在表里，只是 SELECT 没拿）
+
+## Round 2 Task 拆分
+
+| Task | 内容 |
+|------|------|
+| 9 | 后端：listQuestions 加 createdAt 返回；import-jobs 加 PATCH + DELETE 端点；worker cancel 标志 |
+| 10 | 前端进度页修复：chunk 1200 + 文案"批次" + 预估时间 + 去掉自动跳转 + 取消按钮 + 重复上传 toast |
+| 11 | 待审队列页（新）：从 jobId 读 candidates，列表 + 单题进 QuestionConfirm 编辑，保存后 PATCH job |
+| 12 | 缺答案识别 + 一键 AI 批量解答（client-side 串行循环，每题 PATCH job） |
+| 13 | 题库管理：行显示创建时间 + 来源 chip；顶部加日期快捷 chip + 来源多选 chip（前端本地筛选） |
+| 14 | 验证 + changelog 增补 + tag v0.0.2.5 |
+
+## 复用决策
+
+- 单题编辑**复用现有 QuestionConfirm.tsx**——它已支持 stem/options/answer/tags/difficulty/explanation 编辑 + 查重 + AI 解题。只需在路由里传 jobId + candidateIdx，保存逻辑改成 PATCH job + 创建 question + 从 candidates 数组移除该 idx。
+- 批量 AI 解答不开后端 worker——前端 client-side 串行循环复用 `/solve-candidate`，进度天然实时，关浏览器不丢（已解的题已 PATCH 持久化）。
