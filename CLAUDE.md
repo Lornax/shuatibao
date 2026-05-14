@@ -107,7 +107,19 @@ learn-or-die-linephoto/  # 线框图（Claude Design 输出）
 6. **遵守 Superpowers 流程**：brainstorming → design doc → plan → subagent development → TDD → code review → finish branch。不允许跳过 brainstorming 和 planning 阶段直接写代码。
 
 ## Tech Debt
-- PDF 导入是同步阻塞调用，单次 LLM 输出有 token 上限，**大 PDF（>20 题）会卡死请求**。v0.0.2.2 整改：拆批 + 异步任务 + 真进度推送。
+- （暂无）
+
+## v0.0.2.5（2026-05-14，PDF 异步导入）
+
+把 v0.0.2 同步阻塞的 PDF 导入改成异步任务模型，解决大 PDF（>20 题）被 8K 输出 token 截断 + HTTP 网关超时的痛点。
+- 新表 `import_jobs`：status/totalChunks/doneChunks/candidates/error 持久化进度
+- 新工具 `pdf-chunker`：按 ~3500 字符切分，在题号边界（`N.` / `第N题`）对齐，无字符丢失
+- 新 worker `processPdfImportJob`：setImmediate 后台串行调每个 chunk 的 qwen-max，逐 chunk 写库
+- 新端点：`POST/GET /api/profiles/:pid/import-jobs[/:jid]`；重复 POST 直接 409 返回现有 jobId
+- 启动时 self-heal：`pending`/`running` 旧 job 标 `failed('server_restart')`
+- 前端：上传后立刻跳进度页，1.5s 轮询，chunk 方阵动画 + 3 个统计卡片；完成 1s 后自动跳 confirm
+- **失败保留已识别题**：candidates 字段始终持久化，failed 时给「用现有 N 题」CTA，提升 UX
+- ProfileDetail 顶部加"恢复未完成导入"chip：跨页面/换设备能续看进度
 
 ## v0.0.2.1 hotfix（2026-05-09，使用反馈驱动）
 
