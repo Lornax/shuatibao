@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, type ImportJob } from '../api/client';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
 import { Layout } from '../components/Layout';
@@ -11,6 +11,14 @@ export function QuestionFromPDF() {
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [existingJob, setExistingJob] = useState<ImportJob | null>(null);
+
+  useEffect(() => {
+    if (!pid) return;
+    api.listImportJobs(pid, ['pending', 'running']).then((r) => {
+      setExistingJob(r.jobs[0] ?? null);
+    }).catch(() => {});
+  }, [pid]);
 
   function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -30,7 +38,10 @@ export function QuestionFromPDF() {
       if (res.ok) {
         nav(`/profiles/${pid}/import-jobs/${res.jobId}`, { replace: true });
       } else if (res.conflict) {
-        nav(`/profiles/${pid}/import-jobs/${res.jobId}`, { replace: true });
+        // refresh the inflight banner with the existing job so user can see what's blocking
+        const j = await api.getImportJob(pid!, res.existingJobId);
+        setExistingJob(j);
+        setSubmitting(false);
       }
     } catch (e) {
       setError(String(e));
@@ -41,6 +52,25 @@ export function QuestionFromPDF() {
   return (
     <Layout title="PDF 导入" back={() => nav(`/profiles/${pid}/questions/new`)}>
       <div className="space-y-3">
+        {existingJob && (
+          <Box variant="thick" className="p-3 bg-chip-pink">
+            <p className="font-handBold text-sm mb-1">⚠ 当前已有一份 PDF 在解析中</p>
+            <p className="font-cn text-xs text-ink-2 mb-2 truncate">
+              {existingJob.filename} · {existingJob.doneChunks} / {existingJob.totalChunks} 批 · 已识别 {existingJob.candidates.length} 题
+            </p>
+            <p className="font-cn text-xs text-ink-2 mb-2">
+              同档案同一时间只允许 1 份导入，等它结束（或在进度页取消它）后再传新文件。
+            </p>
+            <Button
+              variant="primary"
+              className="w-full justify-center"
+              onClick={() => nav(`/profiles/${pid}/import-jobs/${existingJob.id}`, { replace: true })}
+            >
+              去看正在解析的那份 →
+            </Button>
+          </Box>
+        )}
+
         <p className="font-cn text-sm text-ink-2">
           上传一份 NPDP 真题 PDF（≤20MB），AI 解析后让你逐题确认。
         </p>
@@ -57,8 +87,13 @@ export function QuestionFromPDF() {
             <p className="font-cn text-xs text-accent">{error}</p>
           </Box>
         )}
-        <Button variant="primary" onClick={go} disabled={!file || submitting} className="w-full justify-center">
-          {submitting ? '正在提交...' : '开始解析'}
+        <Button
+          variant="primary"
+          onClick={go}
+          disabled={!file || submitting || !!existingJob}
+          className="w-full justify-center"
+        >
+          {submitting ? '正在提交...' : existingJob ? '等当前那份完成' : '开始解析'}
         </Button>
         <Box variant="dashed" className="p-2">
           <p className="font-cn text-xs text-ink-3">

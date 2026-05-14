@@ -152,7 +152,7 @@ export const api = {
     }).then(async (res) => {
       const body = await res.json().catch(() => ({}));
       if (res.status === 201) return { ok: true as const, jobId: body.jobId as string, totalChunks: body.totalChunks as number };
-      if (res.status === 409) return { ok: false as const, conflict: true as const, jobId: body.jobId as string };
+      if (res.status === 409) return { ok: false as const, conflict: true as const, existingJobId: body.jobId as string };
       throw new Error(`createPdfImportJob ${res.status}: ${JSON.stringify(body)}`);
     });
   },
@@ -163,6 +163,18 @@ export const api = {
   listImportJobs: (pid: string, statuses?: ImportJobStatus[]) =>
     request<{ jobs: ImportJob[] }>(
       `/profiles/${pid}/import-jobs${statuses ? `?status=${statuses.join(',')}` : ''}`,
+    ),
+
+  patchImportJob: (pid: string, jid: string, candidates: CandidateQuestion[]) =>
+    request<ImportJob>(`/profiles/${pid}/import-jobs/${jid}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ candidates }),
+    }),
+
+  deleteImportJob: (pid: string, jid: string) =>
+    request<{ ok: boolean; signaled?: boolean; deleted?: boolean }>(
+      `/profiles/${pid}/import-jobs/${jid}`,
+      { method: 'DELETE' },
     ),
 
   parsePrompt: (

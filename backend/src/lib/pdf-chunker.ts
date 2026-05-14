@@ -12,7 +12,7 @@
 
 const QNUM_BOUNDARY = /\n(\d{1,3}[\.、)]\s|第\s*\d+\s*[题道节])/g;
 
-export function chunkPdfText(text: string, targetSize = 3500): string[] {
+export function chunkPdfText(text: string, targetSize = 1200): string[] {
   if (!text.trim()) return [];
   if (text.length <= targetSize) return [text];
 
