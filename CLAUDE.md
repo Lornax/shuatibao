@@ -109,17 +109,33 @@ learn-or-die-linephoto/  # 线框图（Claude Design 输出）
 ## Tech Debt
 - （暂无）
 
-## v0.0.2.5（2026-05-14，PDF 异步导入）
+## v0.0.2.5（2026-05-14，PDF 异步导入 + 真实使用反馈打磨）
 
-把 v0.0.2 同步阻塞的 PDF 导入改成异步任务模型，解决大 PDF（>20 题）被 8K 输出 token 截断 + HTTP 网关超时的痛点。
+把 v0.0.2 同步阻塞的 PDF 导入改成异步任务模型，解决大 PDF（>20 题）被 8K 输出 token 截断 + HTTP 网关超时的痛点。**作者本人传一份 100+ 题真题暴露了 10 个产品/UX 问题，全部 Round 2 修完**。
+
+### Round 1：异步基础设施
+
 - 新表 `import_jobs`：status/totalChunks/doneChunks/candidates/error 持久化进度
-- 新工具 `pdf-chunker`：按 ~3500 字符切分，在题号边界（`N.` / `第N题`）对齐，无字符丢失
+- 新工具 `pdf-chunker`：按字符切分，在题号边界（`N.` / `第N题`）对齐，无字符丢失
 - 新 worker `processPdfImportJob`：setImmediate 后台串行调每个 chunk 的 qwen-max，逐 chunk 写库
 - 新端点：`POST/GET /api/profiles/:pid/import-jobs[/:jid]`；重复 POST 直接 409 返回现有 jobId
 - 启动时 self-heal：`pending`/`running` 旧 job 标 `failed('server_restart')`
-- 前端：上传后立刻跳进度页，1.5s 轮询，chunk 方阵动画 + 3 个统计卡片；完成 1s 后自动跳 confirm
-- **失败保留已识别题**：candidates 字段始终持久化，failed 时给「用现有 N 题」CTA，提升 UX
-- ProfileDetail 顶部加"恢复未完成导入"chip：跨页面/换设备能续看进度
+- 失败时 candidates 字段持久化保留，UI 提供「用现有 N 题」CTA
+
+### Round 2：真实使用反馈驱动的 UX 修复
+
+- **chunk size 3500→1200**：单次 LLM 调用降到 15-25s，进度条跳动密集（之前 60-100s 一格让用户以为卡死）
+- **进度页文案改"批次"**："0/8" 不再被误解为"只识别了 8 道题"；加预估时间「预计还需 N 分 M 秒」
+- **去掉自动跳转**：useEffect 依赖 `job?.status` re-run cleanup 把 setTimeout cancelled 守卫错误置 true，nav 被阻塞——修复方式是直接去掉自动跳转，只留按钮（避免"自动 + 手动按钮同时显示"的矛盾）
+- **取消导入按钮**：DELETE 端点 + worker cancel 标志（下个 chunk 边界生效），已识别的题保留
+- **重复上传不再静默跳走**：409 时显示页内 banner「已有一份 xxx.pdf 在跑」+ CTA
+- **待审队列改造**（核心）：完成后跳新页 `/import-jobs/:jid/review`，candidates 从 job 表持久化读
+  - 列表视图：每条题干前缀 + 「缺答案」/「已识别答案 X」chip + 「丢弃」按钮
+  - 点击进单题编辑（复用 ConfirmOne），保存后 PATCH job 移除该条
+  - 关浏览器/换页面随时回来续审，PATCH 自动清空 job 时删除 row
+- **一键 AI 批量解答**：检测 `candidates.filter(c => !c.answer)`，client-side 串行循环调 `/solve-candidate`，每题 PATCH job 持久化，关页面不丢
+- **题库列表加创建时间 + 来源 + 筛选**：每行显示「拍照/手输/PDF/AI 出题」chip + 相对时间；顶部加日期快捷 chip（今天/近 7 天/近 30 天/全部）+ 来源多选 chip
+- **数据模型不动**：未来"第三方笔记包/署名"扩展通过 `source` enum 加值 + `sourceMeta` jsonb 字段（已存在）即可实现
 
 ## v0.0.2.1 hotfix（2026-05-09，使用反馈驱动）
 
