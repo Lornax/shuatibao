@@ -65,6 +65,22 @@ export type SimilarQuestion = {
   similarity: number;
 };
 
+export type ImportJobStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export type ImportJob = {
+  id: string;
+  status: ImportJobStatus;
+  kind: string;
+  filename: string;
+  totalChunks: number;
+  doneChunks: number;
+  candidates: CandidateQuestion[];
+  error: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+};
+
 export type WrongItem = {
   id: string;
   stem: string;
@@ -125,6 +141,29 @@ export const api = {
       return res.json() as Promise<{ candidates: CandidateQuestion[]; source: 'pdf'; count: number }>;
     });
   },
+
+  createPdfImportJob: (pid: string, file: File) => {
+    const fd = new FormData();
+    fd.set('pdf', file);
+    return fetch(`/api/profiles/${pid}/import-jobs`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}` },
+      body: fd,
+    }).then(async (res) => {
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 201) return { ok: true as const, jobId: body.jobId as string, totalChunks: body.totalChunks as number };
+      if (res.status === 409) return { ok: false as const, conflict: true as const, jobId: body.jobId as string };
+      throw new Error(`createPdfImportJob ${res.status}: ${JSON.stringify(body)}`);
+    });
+  },
+
+  getImportJob: (pid: string, jid: string) =>
+    request<ImportJob>(`/profiles/${pid}/import-jobs/${jid}`),
+
+  listImportJobs: (pid: string, statuses?: ImportJobStatus[]) =>
+    request<{ jobs: ImportJob[] }>(
+      `/profiles/${pid}/import-jobs${statuses ? `?status=${statuses.join(',')}` : ''}`,
+    ),
 
   parsePrompt: (
     pid: string,

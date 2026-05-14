@@ -26,15 +26,12 @@ export function QuestionFromPDF() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await api.parsePdf(pid!, file);
-      if (res.candidates.length === 0) {
-        setError('没识别出任何题');
-        setSubmitting(false);
-        return;
+      const res = await api.createPdfImportJob(pid!, file);
+      if (res.ok) {
+        nav(`/profiles/${pid}/import-jobs/${res.jobId}`, { replace: true });
+      } else if (res.conflict) {
+        nav(`/profiles/${pid}/import-jobs/${res.jobId}`, { replace: true });
       }
-      nav(`/profiles/${pid}/questions/confirm`, {
-        state: { candidates: res.candidates, source: 'pdf' },
-      });
     } catch (e) {
       setError(String(e));
       setSubmitting(false);
@@ -61,7 +58,7 @@ export function QuestionFromPDF() {
           </Box>
         )}
         <Button variant="primary" onClick={go} disabled={!file || submitting} className="w-full justify-center">
-          {submitting ? '解析中...（30-60s）' : '开始解析'}
+          {submitting ? '正在提交...' : '开始解析'}
         </Button>
         <Box variant="dashed" className="p-2">
           <p className="font-cn text-xs text-ink-3">
