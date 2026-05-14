@@ -7,6 +7,11 @@ const schema = z.object({
   API_TOKEN: z.string().min(8),
   SEED_USER_ID: z.string().uuid(),
   DASHSCOPE_API_KEY: z.string().min(8),
+  // optional production HTTP basic auth — wraps SPA & static files
+  // to keep IP scanners from loading the JS bundle that contains the
+  // hardcoded API token. /api/* + /health bypass this layer.
+  BASIC_AUTH_USER: z.string().optional(),
+  BASIC_AUTH_PASS: z.string().optional(),
 });
 
 export const config = schema.parse(process.env);

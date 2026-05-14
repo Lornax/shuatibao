@@ -1,6 +1,8 @@
 import { serve } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { basicAuth } from 'hono/basic-auth';
 import { config } from './config.js';
 import { auth } from './middleware/auth.js';
 import type { AuthVars } from './middleware/auth.js';
@@ -14,8 +16,30 @@ import { importJobsRouter } from './routes/import-jobs.js';
 import { selfHealOnBoot } from './lib/import-worker.js';
 
 const app = new Hono<{ Variables: AuthVars }>();
+const isProd = process.env.NODE_ENV === 'production';
 
-app.use('/api/*', cors({ origin: 'http://localhost:5173', credentials: true }));
+// dev: vite (5173) → backend (3001) needs CORS. prod: same-origin, no CORS needed.
+if (!isProd) {
+  app.use('/api/*', cors({ origin: 'http://localhost:5173', credentials: true }));
+}
+
+// production: HTTP basic-auth wraps the SPA + static assets so IP scanners
+// can't load the JS bundle and extract the hardcoded API token. /api/* and
+// /health bypass this layer — the browser sends Authorization: Bearer there
+// after the SPA is loaded.
+if (isProd && config.BASIC_AUTH_USER && config.BASIC_AUTH_PASS) {
+  const bauth = basicAuth({
+    username: config.BASIC_AUTH_USER,
+    password: config.BASIC_AUTH_PASS,
+  });
+  app.use('*', async (c, next) => {
+    if (c.req.path.startsWith('/api/') || c.req.path === '/health') {
+      return next();
+    }
+    return bauth(c, next);
+  });
+}
+
 app.use('/api/*', auth);
 
 app.get('/health', (c) => c.json({ ok: true, version: '0.0.1' }));
@@ -28,6 +52,13 @@ app.route('/api', parseRouter);
 app.route('/api', solveRouter);
 app.route('/api', tagsRouter);
 app.route('/api', importJobsRouter);
+
+// production: serve the built frontend as a SPA from ./public
+if (isProd) {
+  app.use('/*', serveStatic({ root: './public' }));
+  // SPA fallback — any unmatched path returns index.html so client-side router can handle it
+  app.use('/*', serveStatic({ root: './public', path: 'index.html' }));
+}
 
 if (process.env.NODE_ENV !== 'test' && import.meta.url === `file://${process.argv[1]}`) {
   selfHealOnBoot()
