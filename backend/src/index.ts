@@ -10,6 +10,8 @@ import { attemptsRouter } from './routes/attempts.js';
 import { parseRouter } from './routes/parse.js';
 import { solveRouter } from './routes/solve.js';
 import { tagsRouter } from './routes/tags.js';
+import { importJobsRouter } from './routes/import-jobs.js';
+import { selfHealOnBoot } from './lib/import-worker.js';
 
 const app = new Hono<{ Variables: AuthVars }>();
 
@@ -25,8 +27,14 @@ app.route('/api', attemptsRouter);
 app.route('/api', parseRouter);
 app.route('/api', solveRouter);
 app.route('/api', tagsRouter);
+app.route('/api', importJobsRouter);
 
 if (process.env.NODE_ENV !== 'test' && import.meta.url === `file://${process.argv[1]}`) {
+  selfHealOnBoot()
+    .then((n) => {
+      if (n > 0) console.log(`[import-jobs] self-healed ${n} stale job(s) on boot`);
+    })
+    .catch((e) => console.error('[import-jobs] self-heal failed', e));
   serve({ fetch: app.fetch, port: config.PORT }, (info) => {
     console.log(`backend listening on :${info.port}`);
   });
