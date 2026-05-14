@@ -204,7 +204,15 @@ export function LibraryManage() {
                   )}
                 </div>
                 <div className="font-cn text-xs text-ink-2 mt-1">
-                  答案：{q.answer || <span className="text-accent">&lt;空&gt;</span>}
+                  {q.answer ? (
+                    <>
+                      答案：<span className="font-handBold">{q.answer}</span>
+                      {' · '}
+                      {q.options.find((o) => o.key === q.answer)?.text ?? ''}
+                    </>
+                  ) : (
+                    <>答案：<span className="text-accent">&lt;空&gt;</span></>
+                  )}
                 </div>
                 <div className="flex gap-2 mt-2">
                   <Button onClick={() => setEditingId(q.id)} className="text-xs">编辑</Button>
