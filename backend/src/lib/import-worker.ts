@@ -9,13 +9,14 @@ import type { CandidateQuestion } from '../ai/parser.js';
  * pending/running rows are flipped to failed by self-heal in index.ts.
  */
 const chunksByJobId = new Map<string, string[]>();
+const cancelledJobs = new Set<string>();
 
 export function registerJobChunks(jobId: string, chunks: string[]) {
   chunksByJobId.set(jobId, chunks);
 }
 
-export function getJobChunksForTest(jobId: string): string[] | undefined {
-  return chunksByJobId.get(jobId);
+export function cancelJob(jobId: string) {
+  cancelledJobs.add(jobId);
 }
 
 /**
@@ -38,6 +39,18 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
   const candidates: CandidateQuestion[] = [];
   try {
     for (let i = 0; i < chunks.length; i++) {
+      if (cancelledJobs.has(jobId)) {
+        await db
+          .update(schema.importJobs)
+          .set({
+            status: 'failed',
+            error: 'cancelled',
+            finishedAt: new Date(),
+            candidates: candidates as unknown[],
+          })
+          .where(eq(schema.importJobs.id, jobId));
+        return;
+      }
       const chunk = chunks[i];
       const part = await structureQuestionsFromPdfText(chunk);
       candidates.push(...part);
@@ -65,6 +78,7 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
       .where(eq(schema.importJobs.id, jobId));
   } finally {
     chunksByJobId.delete(jobId);
+    cancelledJobs.delete(jobId);
   }
 }
 

@@ -264,6 +264,166 @@ describe('GET /api/profiles/:pid/import-jobs', () => {
   });
 });
 
+describe('PATCH /api/profiles/:pid/import-jobs/:jid', () => {
+  it('replaces candidates on a completed job', async () => {
+    const r1 = await app.request(`/api/profiles/${pid}/import-jobs`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: fakePdfFile(),
+    });
+    const { jobId } = await r1.json();
+    await waitFor(async () => {
+      const r = await getJob(pid, jobId);
+      return r.body.status === 'completed' ? r.body : null;
+    });
+
+    const newCandidates = [
+      {
+        stem: 'edited stem',
+        options: [
+          { key: 'A', text: 'a' },
+          { key: 'B', text: 'b' },
+        ],
+        answer: 'B',
+        explanation: 'edited',
+        tags: ['NPDP'],
+        difficulty: 3,
+      },
+    ];
+    const res = await app.request(`/api/profiles/${pid}/import-jobs/${jobId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ candidates: newCandidates }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.candidates).toHaveLength(1);
+    expect(body.candidates[0].stem).toBe('edited stem');
+    expect(body.candidates[0].answer).toBe('B');
+  });
+
+  it('rejects PATCH on a running job (409)', async () => {
+    let resolveFirst: () => void;
+    const stuck = new Promise<unknown[]>((resolve) => {
+      resolveFirst = () =>
+        resolve([
+          {
+            stem: 's',
+            options: [
+              { key: 'A', text: 'a' },
+              { key: 'B', text: 'b' },
+            ],
+            answer: 'A',
+            explanation: '',
+            tags: ['NPDP'],
+            difficulty: 2,
+          },
+        ]);
+    });
+    vi.mocked(structureQuestionsFromPdfText).mockReset();
+    vi.mocked(structureQuestionsFromPdfText).mockReturnValue(stuck as Promise<never>);
+
+    const r1 = await app.request(`/api/profiles/${pid}/import-jobs`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: fakePdfFile(),
+    });
+    const { jobId } = await r1.json();
+    await new Promise((r) => setTimeout(r, 30));
+
+    const res = await app.request(`/api/profiles/${pid}/import-jobs/${jobId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ candidates: [] }),
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('job_not_terminal');
+
+    resolveFirst!();
+    await waitFor(async () => {
+      const r = await getJob(pid, jobId);
+      return r.body.status === 'completed' || r.body.status === 'failed' ? r.body : null;
+    });
+  });
+});
+
+describe('DELETE /api/profiles/:pid/import-jobs/:jid', () => {
+  it('signals a running job to cancel; worker flips to failed(cancelled)', async () => {
+    // 1st chunk pending forever until resolved manually
+    let resolveCall: ((v: unknown[]) => void) | null = null;
+    vi.mocked(structureQuestionsFromPdfText).mockReset();
+    vi.mocked(structureQuestionsFromPdfText).mockImplementationOnce(
+      () =>
+        new Promise<unknown[]>((res) => {
+          resolveCall = res;
+        }) as Promise<never>,
+    );
+
+    const r1 = await app.request(`/api/profiles/${pid}/import-jobs`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: fakePdfFile(),
+    });
+    const { jobId } = await r1.json();
+
+    // wait for worker to set running and enter first chunk await
+    await new Promise((r) => setTimeout(r, 40));
+
+    const del = await app.request(`/api/profiles/${pid}/import-jobs/${jobId}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    expect(del.status).toBe(200);
+    expect((await del.json()).signaled).toBe(true);
+
+    // let the stuck chunk resolve so the loop can re-enter and observe the flag
+    resolveCall!([
+      {
+        stem: 'partial',
+        options: [
+          { key: 'A', text: 'a' },
+          { key: 'B', text: 'b' },
+        ],
+        answer: 'A',
+        explanation: '',
+        tags: ['NPDP'],
+        difficulty: 2,
+      },
+    ]);
+
+    const final = await waitFor(async () => {
+      const r = await getJob(pid, jobId);
+      return r.body.status === 'failed' ? r.body : null;
+    });
+    expect(final.error).toBe('cancelled');
+    // candidates from the already-completed first chunk are kept
+    expect(final.candidates.length).toBe(1);
+  });
+
+  it('deletes a terminal job row directly', async () => {
+    const r1 = await app.request(`/api/profiles/${pid}/import-jobs`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: fakePdfFile(),
+    });
+    const { jobId } = await r1.json();
+    await waitFor(async () => {
+      const r = await getJob(pid, jobId);
+      return r.body.status === 'completed' ? r.body : null;
+    });
+
+    const del = await app.request(`/api/profiles/${pid}/import-jobs/${jobId}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    expect(del.status).toBe(200);
+    expect((await del.json()).deleted).toBe(true);
+
+    const gone = await getJob(pid, jobId);
+    expect(gone.status).toBe(404);
+  });
+});
+
 describe('GET /api/profiles/:pid/import-jobs/:jid', () => {
   it('404 when job belongs to different profile', async () => {
     const r1 = await app.request(`/api/profiles/${pid}/import-jobs`, {

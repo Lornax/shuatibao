@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
@@ -6,7 +7,9 @@ import { chunkPdfText } from '../lib/pdf-chunker.js';
 import {
   processPdfImportJob,
   registerJobChunks,
+  cancelJob,
 } from '../lib/import-worker.js';
+import { candidateArraySchema } from '../ai/parser.js';
 // pdf-parse has no types; runtime import OK
 // @ts-expect-error pdf-parse has no types
 import pdfParse from 'pdf-parse';
@@ -130,6 +133,60 @@ router.get('/profiles/:pid/import-jobs/:jid', async (c) => {
   if (!row || row.profileId !== pid) return c.json({ error: 'not_found' }, 404);
 
   return c.json(serializeJob(row));
+});
+
+router.patch('/profiles/:pid/import-jobs/:jid', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  const jid = c.req.param('jid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  const [row] = await db
+    .select()
+    .from(schema.importJobs)
+    .where(eq(schema.importJobs.id, jid))
+    .limit(1);
+  if (!row || row.profileId !== pid) return c.json({ error: 'not_found' }, 404);
+  // only allow editing candidates for terminal jobs (avoid races with worker)
+  if (row.status !== 'completed' && row.status !== 'failed') {
+    return c.json({ error: 'job_not_terminal', status: row.status }, 409);
+  }
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = z.object({ candidates: candidateArraySchema }).safeParse(body);
+  if (!parsed.success) return c.json({ error: 'invalid_body' }, 400);
+
+  const [updated] = await db
+    .update(schema.importJobs)
+    .set({ candidates: parsed.data.candidates as unknown[] })
+    .where(eq(schema.importJobs.id, jid))
+    .returning();
+
+  return c.json(serializeJob(updated));
+});
+
+router.delete('/profiles/:pid/import-jobs/:jid', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  const jid = c.req.param('jid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  const [row] = await db
+    .select()
+    .from(schema.importJobs)
+    .where(eq(schema.importJobs.id, jid))
+    .limit(1);
+  if (!row || row.profileId !== pid) return c.json({ error: 'not_found' }, 404);
+
+  if (row.status === 'pending' || row.status === 'running') {
+    // signal worker; worker will flip status to failed('cancelled') on its
+    // next chunk boundary. Don't flip status here to avoid races.
+    cancelJob(jid);
+    return c.json({ ok: true, signaled: true });
+  }
+  // already terminal: just delete the row
+  await db.delete(schema.importJobs).where(eq(schema.importJobs.id, jid));
+  return c.json({ ok: true, deleted: true });
 });
 
 function serializeJob(row: typeof schema.importJobs.$inferSelect) {
