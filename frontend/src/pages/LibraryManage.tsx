@@ -47,6 +47,8 @@ export function LibraryManage() {
   const [scope, setScope] = useState<SearchScope>('all');
   const [dateRange, setDateRange] = useState<DateRange>('all');
   const [sourceFilter, setSourceFilter] = useState<Set<QuestionSource>>(new Set(ALL_SOURCES));
+  const [diffFilter, setDiffFilter] = useState<Set<number>>(new Set([1, 2, 3, 4, 5]));
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +81,28 @@ export function LibraryManage() {
     });
   }
 
+  function toggleDiff(d: number) {
+    setDiffFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next;
+    });
+  }
+
+  function resetFilters() {
+    setScope('all');
+    setDateRange('all');
+    setSourceFilter(new Set(ALL_SOURCES));
+    setDiffFilter(new Set([1, 2, 3, 4, 5]));
+  }
+
+  const activeFilterCount =
+    (scope !== 'all' ? 1 : 0) +
+    (dateRange !== 'all' ? 1 : 0) +
+    (sourceFilter.size !== ALL_SOURCES.length ? 1 : 0) +
+    (diffFilter.size !== 5 ? 1 : 0);
+
   const sinceMs = useMemo(() => {
     const day = 24 * 3600 * 1000;
     const now = Date.now();
@@ -95,11 +119,9 @@ export function LibraryManage() {
   const filtered = useMemo(() => {
     if (!list) return [];
     return list.filter((q) => {
-      // date
       if (sinceMs > 0 && new Date(q.createdAt).getTime() < sinceMs) return false;
-      // source
       if (!sourceFilter.has(q.source)) return false;
-      // search
+      if (!diffFilter.has(q.difficulty)) return false;
       if (search.trim()) {
         const s = search.trim();
         const inStem = q.stem.includes(s);
@@ -114,50 +136,77 @@ export function LibraryManage() {
       }
       return true;
     });
-  }, [list, sinceMs, sourceFilter, search, scope]);
+  }, [list, sinceMs, sourceFilter, diffFilter, search, scope]);
 
   return (
     <Layout title={`题库 (${list?.length ?? 0})`} back={() => nav(`/profiles/${pid}`)}>
       <div className="space-y-3">
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={
-            scope === 'stem' ? '搜题干...' :
-            scope === 'tag' ? '搜个人标签...' :
-            scope === 'chapter' ? '搜章节...' :
-            '搜全部（题干 / 标签 / 章节）...'
-          }
-        />
-        <div className="flex gap-1 flex-wrap">
-          {(['all', 'stem', 'chapter', 'tag'] as SearchScope[]).map((s) => (
-            <Chip key={s} active={scope === s} onClick={() => setScope(s)}>
-              {s === 'all' ? '全部' : s === 'stem' ? '只搜题干' : s === 'chapter' ? '只搜章节' : '只搜标签'}
-            </Chip>
-          ))}
+        <div className="flex gap-2 items-stretch">
+          <div className="flex-1 min-w-0">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={
+                scope === 'stem' ? '搜题干...' :
+                scope === 'tag' ? '搜标签...' :
+                scope === 'chapter' ? '搜章节...' :
+                '搜题干 / 标签 / 章节...'
+              }
+            />
+          </div>
+          <button
+            onClick={() => setFiltersOpen((v) => !v)}
+            className="relative shrink-0 border-[1.5px] border-ink rounded-lg bg-white px-3 font-cn text-sm hover:bg-chip-cream"
+            aria-expanded={filtersOpen}
+          >
+            筛选 {filtersOpen ? '▴' : '▾'}
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-white text-[10px] font-handBold leading-none border border-ink">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
         </div>
 
-        <div>
-          <p className="font-cn text-[11px] text-ink-3 mb-1">按日期</p>
-          <div className="flex gap-1 flex-wrap">
-            {(['all', 'today', '7d', '30d'] as DateRange[]).map((d) => (
-              <Chip key={d} active={dateRange === d} onClick={() => setDateRange(d)}>
-                {d === 'all' ? '全部时间' : d === 'today' ? '今天' : d === '7d' ? '近 7 天' : '近 30 天'}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="font-cn text-[11px] text-ink-3 mb-1">按来源</p>
-          <div className="flex gap-1 flex-wrap">
-            {ALL_SOURCES.map((s) => (
-              <Chip key={s} active={sourceFilter.has(s)} onClick={() => toggleSource(s)}>
-                {SOURCE_LABEL[s]}
-              </Chip>
-            ))}
-          </div>
-        </div>
+        {filtersOpen && (
+          <Box variant="dashed" className="p-3 space-y-3">
+            <FilterRow label="搜索范围">
+              {(['all', 'stem', 'chapter', 'tag'] as SearchScope[]).map((s) => (
+                <Chip key={s} active={scope === s} onClick={() => setScope(s)}>
+                  {s === 'all' ? '全部' : s === 'stem' ? '题干' : s === 'chapter' ? '章节' : '标签'}
+                </Chip>
+              ))}
+            </FilterRow>
+            <FilterRow label="按日期">
+              {(['all', 'today', '7d', '30d'] as DateRange[]).map((d) => (
+                <Chip key={d} active={dateRange === d} onClick={() => setDateRange(d)}>
+                  {d === 'all' ? '全部时间' : d === 'today' ? '今天' : d === '7d' ? '近 7 天' : '近 30 天'}
+                </Chip>
+              ))}
+            </FilterRow>
+            <FilterRow label="按来源">
+              {ALL_SOURCES.map((s) => (
+                <Chip key={s} active={sourceFilter.has(s)} onClick={() => toggleSource(s)}>
+                  {SOURCE_LABEL[s]}
+                </Chip>
+              ))}
+            </FilterRow>
+            <FilterRow label="按难度">
+              {[1, 2, 3, 4, 5].map((d) => (
+                <Chip key={d} active={diffFilter.has(d)} onClick={() => toggleDiff(d)}>
+                  {'★'.repeat(d)}
+                </Chip>
+              ))}
+            </FilterRow>
+            {activeFilterCount > 0 && (
+              <div className="pt-1">
+                <button onClick={resetFilters} className="font-cn text-xs text-ink-2 underline">
+                  清空全部筛选
+                </button>
+              </div>
+            )}
+          </Box>
+        )}
 
         {error && (
           <Box variant="dashed" className="p-2">
@@ -226,6 +275,15 @@ export function LibraryManage() {
         ))}
       </div>
     </Layout>
+  );
+}
+
+function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="font-cn text-[11px] text-ink-3 mb-1">{label}</p>
+      <div className="flex gap-1 flex-wrap">{children}</div>
+    </div>
   );
 }
 
