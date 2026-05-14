@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api, type Question } from '../api/client';
+import { api, type Question, type QuestionSource } from '../api/client';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
@@ -11,7 +11,33 @@ import { Layout } from '../components/Layout';
 const KEYS = ['A', 'B', 'C', 'D'] as const;
 
 type SearchScope = 'all' | 'stem' | 'tag' | 'chapter';
+type DateRange = 'all' | 'today' | '7d' | '30d';
 const CHAPTER_PREFIX = '章节:';
+
+const ALL_SOURCES: QuestionSource[] = ['photo', 'manual', 'pdf', 'ai_gen'];
+const SOURCE_LABEL: Record<QuestionSource, string> = {
+  photo: '拍照',
+  manual: '手输',
+  pdf: 'PDF',
+  ai_gen: 'AI 出题',
+};
+
+function sourceLabel(s: QuestionSource) {
+  return SOURCE_LABEL[s] ?? s;
+}
+
+function relativeTime(iso: string): string {
+  const now = Date.now();
+  const t = new Date(iso).getTime();
+  const diffMs = now - t;
+  const day = 24 * 3600 * 1000;
+  if (diffMs < 60 * 1000) return '刚刚';
+  if (diffMs < 3600 * 1000) return `${Math.floor(diffMs / 60000)} 分钟前`;
+  if (diffMs < day) return `${Math.floor(diffMs / 3600000)} 小时前`;
+  const days = Math.floor(diffMs / day);
+  if (days < 30) return `${days} 天前`;
+  return new Date(iso).toLocaleDateString('zh-CN');
+}
 
 export function LibraryManage() {
   const { pid } = useParams<{ pid: string }>();
@@ -19,6 +45,8 @@ export function LibraryManage() {
   const [list, setList] = useState<Question[] | null>(null);
   const [search, setSearch] = useState('');
   const [scope, setScope] = useState<SearchScope>('all');
+  const [dateRange, setDateRange] = useState<DateRange>('all');
+  const [sourceFilter, setSourceFilter] = useState<Set<QuestionSource>>(new Set(ALL_SOURCES));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +57,7 @@ export function LibraryManage() {
 
   useEffect(() => {
     reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pid]);
 
   async function handleDelete(id: string) {
@@ -41,19 +70,51 @@ export function LibraryManage() {
     }
   }
 
-  const filtered = list?.filter((q) => {
-    if (!search.trim()) return true;
-    const s = search.trim();
-    const inStem = q.stem.includes(s);
-    const chapterTag = q.tags.find((t) => t.startsWith(CHAPTER_PREFIX));
-    const chapterText = chapterTag ? chapterTag.slice(CHAPTER_PREFIX.length) : '';
-    const inChapter = chapterText.includes(s);
-    const inOtherTag = q.tags.some((t) => !t.startsWith(CHAPTER_PREFIX) && t.includes(s));
-    if (scope === 'stem') return inStem;
-    if (scope === 'tag') return inOtherTag;
-    if (scope === 'chapter') return inChapter;
-    return inStem || inOtherTag || inChapter;
-  }) ?? [];
+  function toggleSource(s: QuestionSource) {
+    setSourceFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  }
+
+  const sinceMs = useMemo(() => {
+    const day = 24 * 3600 * 1000;
+    const now = Date.now();
+    if (dateRange === 'today') {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+    if (dateRange === '7d') return now - 7 * day;
+    if (dateRange === '30d') return now - 30 * day;
+    return 0;
+  }, [dateRange]);
+
+  const filtered = useMemo(() => {
+    if (!list) return [];
+    return list.filter((q) => {
+      // date
+      if (sinceMs > 0 && new Date(q.createdAt).getTime() < sinceMs) return false;
+      // source
+      if (!sourceFilter.has(q.source)) return false;
+      // search
+      if (search.trim()) {
+        const s = search.trim();
+        const inStem = q.stem.includes(s);
+        const chapterTag = q.tags.find((t) => t.startsWith(CHAPTER_PREFIX));
+        const chapterText = chapterTag ? chapterTag.slice(CHAPTER_PREFIX.length) : '';
+        const inChapter = chapterText.includes(s);
+        const inOtherTag = q.tags.some((t) => !t.startsWith(CHAPTER_PREFIX) && t.includes(s));
+        if (scope === 'stem') return inStem;
+        if (scope === 'tag') return inOtherTag;
+        if (scope === 'chapter') return inChapter;
+        return inStem || inOtherTag || inChapter;
+      }
+      return true;
+    });
+  }, [list, sinceMs, sourceFilter, search, scope]);
 
   return (
     <Layout title={`题库 (${list?.length ?? 0})`} back={() => nav(`/profiles/${pid}`)}>
@@ -75,6 +136,29 @@ export function LibraryManage() {
             </Chip>
           ))}
         </div>
+
+        <div>
+          <p className="font-cn text-[11px] text-ink-3 mb-1">按日期</p>
+          <div className="flex gap-1 flex-wrap">
+            {(['all', 'today', '7d', '30d'] as DateRange[]).map((d) => (
+              <Chip key={d} active={dateRange === d} onClick={() => setDateRange(d)}>
+                {d === 'all' ? '全部时间' : d === 'today' ? '今天' : d === '7d' ? '近 7 天' : '近 30 天'}
+              </Chip>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="font-cn text-[11px] text-ink-3 mb-1">按来源</p>
+          <div className="flex gap-1 flex-wrap">
+            {ALL_SOURCES.map((s) => (
+              <Chip key={s} active={sourceFilter.has(s)} onClick={() => toggleSource(s)}>
+                {SOURCE_LABEL[s]}
+              </Chip>
+            ))}
+          </div>
+        </div>
+
         {error && (
           <Box variant="dashed" className="p-2">
             <p className="font-cn text-xs text-accent">{error}</p>
@@ -84,6 +168,11 @@ export function LibraryManage() {
         {list?.length === 0 && (
           <Box variant="dashed" className="p-4 text-center">
             <p className="font-cn text-sm text-ink-2">题库还空着</p>
+          </Box>
+        )}
+        {list && list.length > 0 && filtered.length === 0 && (
+          <Box variant="dashed" className="p-4 text-center">
+            <p className="font-cn text-sm text-ink-2">这组筛选下没有题</p>
           </Box>
         )}
         {filtered.map((q) => (
@@ -98,7 +187,10 @@ export function LibraryManage() {
               <div>
                 <p className="font-cn text-sm leading-relaxed mb-1">{q.stem}</p>
                 <div className="flex items-center gap-2 mt-1 text-xs flex-wrap">
-                  <Chip>{q.source}</Chip>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-ink text-ink text-[10px] font-handBold leading-none bg-chip-blue">
+                    {sourceLabel(q.source)}
+                  </span>
+                  <span className="font-cn text-ink-3 text-[11px]">{relativeTime(q.createdAt)}</span>
                   <span className="font-cn text-ink-2">{'★'.repeat(q.difficulty)}</span>
                   {q.tags.length > 0 && <span className="font-cn text-ink-2">{q.tags.join(' · ')}</span>}
                   {q.accuracy != null && q.accuracy < 1 && (

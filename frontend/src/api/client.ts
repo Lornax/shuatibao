@@ -42,6 +42,7 @@ export type Question = {
   tags: string[];
   difficulty: number;
   source: QuestionSource;
+  createdAt: string;
   attemptTotal?: number;
   attemptCorrect?: number;
   accuracy?: number | null;
