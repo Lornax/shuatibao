@@ -40,12 +40,19 @@ export function Quiz() {
   async function refreshStats() {
     if (!pid) return;
     try {
-      const list = await api.listQuestions(pid);
-      setLibraryTotal(list.length);
-      const r = list.filter(
-        (q) => (q.attemptTotal ?? 0) === 0 || (q.accuracy ?? 0) < 1,
-      ).length;
-      setRemaining(r);
+      if (wrongOnly) {
+        // 错题模式：R 就是错题本的题数（最近一次答错的题）
+        const wrong = await api.wrongbook(pid);
+        setLibraryTotal(wrong.length);
+        setRemaining(wrong.length);
+      } else {
+        const list = await api.listQuestions(pid);
+        setLibraryTotal(list.length);
+        const r = list.filter(
+          (q) => (q.attemptTotal ?? 0) === 0 || (q.accuracy ?? 0) < 1,
+        ).length;
+        setRemaining(r);
+      }
     } catch {
       // soft-fail; counter just shows "—"
     }
@@ -147,7 +154,9 @@ export function Quiz() {
           </span>
           <span className="text-ink-2">
             {remaining != null && libraryTotal != null
-              ? `剩 ${remaining} 道未掌握 / 共 ${libraryTotal}`
+              ? wrongOnly
+                ? `错题 ${remaining} 道`
+                : `剩 ${remaining} 道未掌握 / 共 ${libraryTotal}`
               : '—'}
           </span>
         </div>

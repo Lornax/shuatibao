@@ -55,6 +55,19 @@ app.route('/api', importJobsRouter);
 
 // production: serve the built frontend as a SPA from ./public
 if (isProd) {
+  // hashed assets (/assets/*) are content-addressed by Vite → cache forever.
+  // index.html and SPA fallback paths MUST NOT cache so users always get the
+  // latest bundle reference after a deploy (otherwise mobile browsers stick
+  // with an outdated JS bundle and you see "fix not applied" reports).
+  app.use('/*', async (c, next) => {
+    await next();
+    const p = c.req.path;
+    if (p.startsWith('/assets/')) {
+      c.header('Cache-Control', 'public, max-age=31536000, immutable');
+    } else {
+      c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  });
   app.use('/*', serveStatic({ root: './public' }));
   // SPA fallback — any unmatched path returns index.html so client-side router can handle it
   app.use('/*', serveStatic({ root: './public', path: 'index.html' }));
