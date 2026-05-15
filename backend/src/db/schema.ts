@@ -60,6 +60,7 @@ export const importJobs = pgTable('import_jobs', {
   doneChunks: integer('done_chunks').default(0).notNull(),
   candidates: jsonb('candidates').$type<unknown[]>().default([]).notNull(),
   error: text('error'),
+  cosUrl: text('cos_url'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   startedAt: timestamp('started_at', { withTimezone: true }),
   finishedAt: timestamp('finished_at', { withTimezone: true }),

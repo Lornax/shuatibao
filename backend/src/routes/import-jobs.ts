@@ -10,6 +10,7 @@ import {
   cancelJob,
 } from '../lib/import-worker.js';
 import { candidateArraySchema } from '../ai/parser.js';
+import { getSignedUrl, isCosEnabled, uploadPdfToCOS } from '../lib/cos.js';
 // pdf-parse has no types; runtime import OK
 // @ts-expect-error pdf-parse has no types
 import pdfParse from 'pdf-parse';
@@ -70,6 +71,19 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
     `[import-jobs] new pdf: ${file.name} · ${(file.size / 1024 / 1024).toFixed(1)}MB · ${text.length} chars → ${chunks.length} chunks`,
   );
 
+  // upload original PDF to COS so the user can download/preview later.
+  // Best-effort: if COS isn't configured or upload fails, we still proceed
+  // — the import-job functionality doesn't depend on having an archive.
+  let cosUrl: string | null = null;
+  if (isCosEnabled()) {
+    try {
+      cosUrl = await uploadPdfToCOS(buf, file.name);
+      console.log(`[import-jobs] uploaded original PDF to COS: ${cosUrl}`);
+    } catch (e) {
+      console.error('[import-jobs] COS upload failed (continuing):', e);
+    }
+  }
+
   const [job] = await db
     .insert(schema.importJobs)
     .values({
@@ -81,6 +95,7 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
       totalChunks: chunks.length,
       doneChunks: 0,
       candidates: [],
+      cosUrl,
     })
     .returning({ id: schema.importJobs.id, totalChunks: schema.importJobs.totalChunks });
 
@@ -120,6 +135,7 @@ router.get('/profiles/:pid/import-jobs', async (c) => {
       doneChunks: schema.importJobs.doneChunks,
       candidatesCount: sql<number>`coalesce(jsonb_array_length(${schema.importJobs.candidates}), 0)::int`,
       error: schema.importJobs.error,
+      cosUrl: schema.importJobs.cosUrl,
       createdAt: schema.importJobs.createdAt,
       startedAt: schema.importJobs.startedAt,
       finishedAt: schema.importJobs.finishedAt,
@@ -133,7 +149,12 @@ router.get('/profiles/:pid/import-jobs', async (c) => {
     )
     .orderBy(desc(schema.importJobs.createdAt));
 
-  return c.json({ jobs: rows });
+  return c.json({
+    jobs: rows.map(({ cosUrl, ...rest }) => ({
+      ...rest,
+      cosDownloadUrl: cosUrl ? getSignedUrl(cosUrl) : null,
+    })),
+  });
 });
 
 router.get('/profiles/:pid/import-jobs/:jid', async (c) => {
@@ -222,6 +243,7 @@ function serializeJob(row: typeof schema.importJobs.$inferSelect) {
     doneChunks: row.doneChunks,
     candidates: row.candidates,
     error: row.error,
+    cosDownloadUrl: row.cosUrl ? getSignedUrl(row.cosUrl) : null,
     createdAt: row.createdAt,
     startedAt: row.startedAt,
     finishedAt: row.finishedAt,

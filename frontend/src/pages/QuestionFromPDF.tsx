@@ -49,6 +49,7 @@ export function QuestionFromPDF() {
           doneChunks: j.doneChunks,
           candidatesCount: j.candidates.length,
           error: j.error,
+          cosDownloadUrl: j.cosDownloadUrl,
           createdAt: j.createdAt,
           startedAt: j.startedAt,
           finishedAt: j.finishedAt,

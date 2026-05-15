@@ -84,12 +84,13 @@ export type ImportJobSummary = {
   doneChunks: number;
   candidatesCount: number;
   error: string | null;
+  cosDownloadUrl: string | null;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
 };
 
-export type ImportJob = ImportJobSummary & {
+export type ImportJob = Omit<ImportJobSummary, 'candidatesCount'> & {
   candidates: CandidateQuestion[];
 };
 

@@ -203,6 +203,16 @@ export function ReviewQueue() {
             PDF
           </span>
           <p className="font-cn text-xs flex-1 truncate">{job.filename}</p>
+          {job.cosDownloadUrl && (
+            <a
+              href={job.cosDownloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-cn text-[11px] underline shrink-0"
+            >
+              📄 原文件
+            </a>
+          )}
         </Box>
 
         {allDone && (

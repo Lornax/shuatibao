@@ -107,8 +107,9 @@ learn-or-die-linephoto/  # 线框图（Claude Design 输出）
 6. **遵守 Superpowers 流程**：brainstorming → design doc → plan → subagent development → TDD → code review → finish branch。不允许跳过 brainstorming 和 planning 阶段直接写代码。
 
 ## Tech Debt
-- **PDF 原文件下载**：当前 import-jobs 不保存 PDF 二进制（只 pdf-parse 出文本就丢），用户审到一半想再看原文没法看。**待 v0.0.2.5 部署 VPS 时一起做**：上传时把文件流式推到腾讯云北京 COS（bucket `zp1-1428145534`），URL 存进 `import_jobs.sourceMeta.cosUrl`，待审队列页 + 题库管理页加下载链接。
-- **PDF 识别完整性**：100+ 题真题被解出 54 道，存在丢失。Round 2 加了 per-chunk 日志（`chars → items` + 耗时）便于诊断；根因可能是 pdf-parse 文本提取丢字、chunker 边界切到题干中间、或 LLM 在某些 chunk 返回 `[]`。等用户传一份 PDF 把日志贴回来定位。
+- ~~PDF 原文件下载~~ ✅ 已做 (v0.0.3.2)：上传时推到腾讯云北京 COS bucket `zp1-1428145534`，URL 存进 `import_jobs.cos_url`，GET 时 mint 10 分钟 signed URL。
+- ~~PDF 识别完整性~~ ✅ 主因已修 (v0.0.2.5 partial-tolerant 解析)：单道烂题不再 nuke 整 chunk。
+- **AI 陪学 Tab**：design.md 规划的独立 Tab（主动学习建议 / 错题复盘 / 进度督促），目前只做了"题目页问 AI"单点入口。
 
 ## v0.0.2.6（2026-05-14，Quiz 答题页打磨 + 拍照入口拆分）
 

@@ -87,6 +87,16 @@ export function ImportJobProgress() {
             PDF
           </span>
           <p className="font-cn text-sm flex-1 truncate">{job.filename}</p>
+          {job.cosDownloadUrl && (
+            <a
+              href={job.cosDownloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-cn text-xs underline shrink-0"
+            >
+              📄 下载原文件
+            </a>
+          )}
         </Box>
 
         <Box variant="thick" className="p-3">

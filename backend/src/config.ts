@@ -12,6 +12,12 @@ const schema = z.object({
   // hardcoded API token. /api/* + /health bypass this layer.
   BASIC_AUTH_USER: z.string().optional(),
   BASIC_AUTH_PASS: z.string().optional(),
+  // Optional Tencent Cloud COS for PDF original-file upload. All 4 must be
+  // set for COS to activate; otherwise import-jobs skip COS upload silently.
+  COS_SECRET_ID: z.string().optional(),
+  COS_SECRET_KEY: z.string().optional(),
+  COS_BUCKET: z.string().optional(),
+  COS_REGION: z.string().optional(),
 });
 
 export const config = schema.parse(process.env);
