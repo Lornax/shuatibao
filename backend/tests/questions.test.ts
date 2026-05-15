@@ -216,3 +216,71 @@ describe('PATCH /api/questions/:id', () => {
     expect(patchRes.status).toBe(400);
   });
 });
+
+describe('POST /api/profiles/:pid/questions/batch-delete', () => {
+  it('deletes multiple questions in one call', async () => {
+    const profileRes = await app.request('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ examName: 'NPDP' }),
+    });
+    const pid = (await profileRes.json()).id;
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const r = await app.request(`/api/profiles/${pid}/questions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ ...validQuestion, stem: `题 ${i}` }),
+      });
+      ids.push((await r.json()).question.id);
+    }
+    const res = await app.request(`/api/profiles/${pid}/questions/batch-delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ ids: ids.slice(0, 2) }),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).deleted).toBe(2);
+
+    const remaining = await app.request(`/api/profiles/${pid}/questions`, {
+      headers: authHeaders(),
+    });
+    expect(await remaining.json()).toHaveLength(1);
+  });
+
+  it('rejects ids not belonging to profile', async () => {
+    const p1Res = await app.request('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ examName: 'A' }),
+    });
+    const p1 = (await p1Res.json()).id;
+    const p2Res = await app.request('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ examName: 'B' }),
+    });
+    const p2 = (await p2Res.json()).id;
+
+    // create question under p1
+    const qRes = await app.request(`/api/profiles/${p1}/questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(validQuestion),
+    });
+    const qid = (await qRes.json()).question.id;
+
+    // try to delete it via p2's endpoint
+    const del = await app.request(`/api/profiles/${p2}/questions/batch-delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ ids: [qid] }),
+    });
+    expect(del.status).toBe(200);
+    expect((await del.json()).deleted).toBe(0);
+
+    // p1 still has the question
+    const list = await app.request(`/api/profiles/${p1}/questions`, { headers: authHeaders() });
+    expect(await list.json()).toHaveLength(1);
+  });
+});

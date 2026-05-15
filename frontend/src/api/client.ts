@@ -343,4 +343,10 @@ export const api = {
       difficulty: number;
     }>,
   ) => request<Question>(`/questions/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+
+  batchDeleteQuestions: (pid: string, ids: string[]) =>
+    request<{ deleted: number }>(`/profiles/${pid}/questions/batch-delete`, {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
 };

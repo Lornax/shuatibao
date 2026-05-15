@@ -21,9 +21,40 @@ export type TextbookChunk = {
 };
 
 const CHAPTER_RE = /(?:^|\n)\s*(第\s*[一二三四五六七八九十百零〇\d]{1,4}\s*章[^\n]{0,80}|Chapter\s+\d+[^\n]{0,80})/g;
+const CHAPTER_NUM_RE = /第\s*([一二三四五六七八九十百零〇\d]+)\s*章|Chapter\s+(\d+)/;
+const CN_DIGITS: Record<string, number> = {
+  零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9,
+};
 const TARGET_CHUNK = 1000;
 const MIN_CHUNK = 200;
 const ALIGN_WINDOW = 200;
+
+/**
+ * Parse a Chinese chapter number like "一", "十", "十一", "二十三" into int.
+ * Fallback null for unknown forms; caller treats null as "can't dedupe".
+ */
+function parseChapterNumber(title: string): number | null {
+  const m = title.match(CHAPTER_NUM_RE);
+  if (!m) return null;
+  const raw = (m[1] ?? m[2] ?? '').trim();
+  if (!raw) return null;
+  if (/^\d+$/.test(raw)) return parseInt(raw, 10);
+  // 中文数字：支持 1-99
+  if (raw === '十') return 10;
+  if (raw.startsWith('十')) {
+    const tail = CN_DIGITS[raw[1]];
+    return tail != null ? 10 + tail : null;
+  }
+  if (raw.includes('十')) {
+    const [tensCh, onesCh] = raw.split('十');
+    const tens = CN_DIGITS[tensCh];
+    const ones = onesCh ? CN_DIGITS[onesCh] ?? 0 : 0;
+    if (tens != null) return tens * 10 + ones;
+    return null;
+  }
+  if (CN_DIGITS[raw] != null) return CN_DIGITS[raw];
+  return null;
+}
 
 export async function parseTextbook(
   buf: Buffer,
@@ -64,13 +95,47 @@ export async function parseTextbook(
     return ans + 1;
   };
 
-  // find chapter boundaries
-  const chapterMatches: { offset: number; title: string }[] = [];
+  // find all chapter occurrences (includes TOC + page headers + inline refs)
+  const allMatches: { offset: number; title: string; num: number | null }[] = [];
   CHAPTER_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = CHAPTER_RE.exec(totalText)) !== null) {
     const title = m[1].trim().replace(/\s+/g, ' ').slice(0, 100);
-    chapterMatches.push({ offset: m.index, title });
+    allMatches.push({ offset: m.index, title, num: parseChapterNumber(title) });
+  }
+
+  // Dedupe by chapter number: keep the **earliest** occurrence per number
+  // that's outside the TOC region. TOC heuristic: TOC usually packs chapter
+  // matches close together (< 200 chars apart). Real chapter heads in body
+  // are far apart. Use median gap between matches to find a cutoff.
+  let chapterMatches: { offset: number; title: string; num: number | null }[] = [];
+  const numbered = allMatches.filter((x) => x.num != null);
+  if (numbered.length === 0) {
+    // no parseable numbers (e.g. fancy chapter titles); fall back to dedupe by title
+    const seen = new Set<string>();
+    chapterMatches = allMatches.filter((x) => {
+      if (seen.has(x.title)) return false;
+      seen.add(x.title);
+      return true;
+    });
+  } else {
+    // for each chapter number, pick the LAST occurrence — body usually comes
+    // after TOC, so the last match for "第 1 章" is most likely the real heading
+    // (page headers repeat but for the same number across many pages, the
+    // last one is still in or after body)
+    const lastByNum = new Map<number, { offset: number; title: string; num: number | null }>();
+    for (const x of allMatches) {
+      if (x.num == null) continue;
+      lastByNum.set(x.num, x);
+    }
+    chapterMatches = Array.from(lastByNum.values()).sort((a, b) => a.offset - b.offset);
+    // Sanity: if still > 50 chapters, the regex is matching garbage. Cap.
+    if (chapterMatches.length > 50) {
+      console.warn(
+        `[textbook-parser] ${chapterMatches.length} chapters detected (>50), likely false positives; truncating to first 50`,
+      );
+      chapterMatches = chapterMatches.slice(0, 50);
+    }
   }
 
   type Section = { chapter: string | null; start: number; end: number };

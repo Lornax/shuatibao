@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, desc, and, ne, sql } from 'drizzle-orm';
+import { eq, desc, and, ne, sql, inArray } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
 import { embed, cosineSimilarity } from '../ai/client.js';
@@ -232,6 +232,33 @@ router.patch('/questions/:id', async (c) => {
     .where(eq(schema.questions.id, id))
     .returning();
   return c.json(updated);
+});
+
+const batchDeleteSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(2000),
+});
+
+router.post('/profiles/:pid/questions/batch-delete', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = batchDeleteSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: 'invalid_body' }, 400);
+
+  // 只删属于这个 profile 的题，防止跨 profile 越权
+  const r = await db
+    .delete(schema.questions)
+    .where(
+      and(
+        eq(schema.questions.profileId, pid),
+        inArray(schema.questions.id, parsed.data.ids),
+      ),
+    )
+    .returning({ id: schema.questions.id });
+
+  return c.json({ deleted: r.length });
 });
 
 export { router as questionsRouter };

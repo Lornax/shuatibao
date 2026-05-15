@@ -42,6 +42,8 @@ function relativeTime(iso: string): string {
 const PAGE_SIZE = 20;
 
 type LoadState = 'initial' | 'paged' | 'loading-full' | 'full';
+type SortKey = 'createdAt' | 'stem' | 'difficulty' | 'accuracy';
+type SortDir = 'asc' | 'desc';
 
 export function LibraryManage() {
   const { pid } = useParams<{ pid: string }>();
@@ -55,9 +57,14 @@ export function LibraryManage() {
   const [dateRange, setDateRange] = useState<DateRange>('all');
   const [sourceFilter, setSourceFilter] = useState<Set<QuestionSource>>(new Set(ALL_SOURCES));
   const [diffFilter, setDiffFilter] = useState<Set<number>>(new Set([1, 2, 3, 4, 5]));
+  const [sortKey, setSortKey] = useState<SortKey>('createdAt');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [multiSelect, setMultiSelect] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchBusy, setBatchBusy] = useState(false);
 
   async function loadFirstPage() {
     if (!pid) return;
@@ -154,6 +161,79 @@ export function LibraryManage() {
     setDiffFilter(new Set([1, 2, 3, 4, 5]));
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function batchDelete() {
+    if (!pid || selectedIds.size === 0) return;
+    if (!window.confirm(`确认删除选中的 ${selectedIds.size} 道题？不可撤销。`)) return;
+    setBatchBusy(true);
+    try {
+      const r = await api.batchDeleteQuestions(pid, Array.from(selectedIds));
+      setSelectedIds(new Set());
+      // 删完重新拉，保持当前装载状态
+      if (loadState === 'full') await loadFull();
+      else await loadFirstPage();
+      if (r.deleted < selectedIds.size) {
+        setError(`删了 ${r.deleted} 道（部分 ID 已不存在或不属于此档案）`);
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBatchBusy(false);
+    }
+  }
+
+  async function clearAll() {
+    if (!pid || list === null) return;
+    // 第一道防线：先确认
+    if (!window.confirm(`⚠ 清空整个题库——${total ?? '?'} 道题全部删除，不可撤销。继续？`)) return;
+    // 第二道防线：输入"清空"才放行
+    const word = window.prompt('请输入「清空」两个字确认（避免误删）：');
+    if (word !== '清空') {
+      setError('未输入「清空」，已取消');
+      return;
+    }
+    setBatchBusy(true);
+    try {
+      // 先确保拿到全部 ids
+      const all = loadState === 'full' ? list : await api.listQuestions(pid);
+      const ids = all.map((q) => q.id);
+      if (ids.length === 0) return;
+      await api.batchDeleteQuestions(pid, ids);
+      setSelectedIds(new Set());
+      await loadFirstPage();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBatchBusy(false);
+    }
+  }
+
+  function cloneQuestion(q: Question) {
+    if (!pid) return;
+    // 跳到 confirm 页, 预填这道题的数据（去掉 id / 重置 source 为 manual）
+    nav(`/profiles/${pid}/questions/confirm`, {
+      state: {
+        candidate: {
+          stem: q.stem + ' (克隆)',
+          options: q.options,
+          answer: q.answer,
+          explanation: q.explanation ?? '',
+          tags: q.tags,
+          difficulty: q.difficulty,
+        },
+        source: 'manual',
+      },
+    });
+  }
+
   const activeFilterCount =
     (scope !== 'all' ? 1 : 0) +
     (dateRange !== 'all' ? 1 : 0) +
@@ -175,7 +255,7 @@ export function LibraryManage() {
 
   const filtered = useMemo(() => {
     if (!list) return [];
-    return list.filter((q) => {
+    const subset = list.filter((q) => {
       if (sinceMs > 0 && new Date(q.createdAt).getTime() < sinceMs) return false;
       if (!sourceFilter.has(q.source)) return false;
       if (!diffFilter.has(q.difficulty)) return false;
@@ -193,7 +273,25 @@ export function LibraryManage() {
       }
       return true;
     });
-  }, [list, sinceMs, sourceFilter, diffFilter, search, scope]);
+    // 排序 (mutate subset 是 OK 的, 是新建的数组)
+    const dir = sortDir === 'asc' ? 1 : -1;
+    subset.sort((a, b) => {
+      switch (sortKey) {
+        case 'createdAt':
+          return dir * (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        case 'stem':
+          return dir * a.stem.localeCompare(b.stem, 'zh-CN');
+        case 'difficulty':
+          return dir * (a.difficulty - b.difficulty);
+        case 'accuracy': {
+          const aAcc = a.accuracy ?? 1;
+          const bAcc = b.accuracy ?? 1;
+          return dir * (aAcc - bAcc);
+        }
+      }
+    });
+    return subset;
+  }, [list, sinceMs, sourceFilter, diffFilter, search, scope, sortKey, sortDir]);
 
   return (
     <Layout title={`题库 (${total ?? 0})`} back={() => nav(`/profiles/${pid}`)}>
@@ -260,6 +358,24 @@ export function LibraryManage() {
                 </Chip>
               ))}
             </FilterRow>
+            <FilterRow label="排序">
+              {([
+                ['createdAt', '导入时间'],
+                ['stem', '题干字母'],
+                ['difficulty', '难度'],
+                ['accuracy', '准确率'],
+              ] as [SortKey, string][]).map(([k, label]) => (
+                <Chip key={k} active={sortKey === k} onClick={() => setSortKey(k)}>
+                  {label}
+                </Chip>
+              ))}
+              <Chip
+                active={false}
+                onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+              >
+                {sortDir === 'asc' ? '↑ 升序' : '↓ 降序'}
+              </Chip>
+            </FilterRow>
             {activeFilterCount > 0 && (
               <div className="pt-1">
                 <button onClick={resetFilters} className="font-cn text-xs text-ink-2 underline">
@@ -267,8 +383,60 @@ export function LibraryManage() {
                 </button>
               </div>
             )}
+            <div className="pt-2 border-t border-dashed border-ink-3 mt-2">
+              <p className="font-cn text-[11px] text-ink-3 mb-1">危险操作</p>
+              <button
+                onClick={clearAll}
+                disabled={batchBusy || (total ?? 0) === 0}
+                className="font-cn text-xs text-accent underline disabled:opacity-40"
+              >
+                ⚠ 清空全部题库 ({total ?? 0} 道)
+              </button>
+            </div>
           </Box>
         )}
+
+        {/* 多选 toggle + 批量条 */}
+        <div className="flex items-center gap-2 -mt-1">
+          <button
+            onClick={() => {
+              setMultiSelect((v) => !v);
+              setSelectedIds(new Set());
+            }}
+            className={`font-cn text-xs px-2 py-0.5 rounded-full border-[1.5px] border-ink ${
+              multiSelect ? 'bg-chip-blue' : 'bg-white'
+            }`}
+          >
+            {multiSelect ? '✓ 多选中' : '☐ 多选'}
+          </button>
+          {multiSelect && (
+            <>
+              <button
+                onClick={() => setSelectedIds(new Set(filtered.map((q) => q.id)))}
+                className="font-cn text-xs text-ink-2 underline"
+              >
+                全选 ({filtered.length})
+              </button>
+              {selectedIds.size > 0 && (
+                <>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    className="font-cn text-xs text-ink-2 underline"
+                  >
+                    取消选择
+                  </button>
+                  <button
+                    onClick={batchDelete}
+                    disabled={batchBusy}
+                    className="ml-auto font-cn text-xs px-2 py-0.5 rounded-full border-[1.5px] border-accent text-accent bg-chip-pink disabled:opacity-50"
+                  >
+                    {batchBusy ? '...' : `删除 ${selectedIds.size}`}
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
 
         {error && (
           <Box variant="dashed" className="p-2">
@@ -300,7 +468,11 @@ export function LibraryManage() {
           </Box>
         )}
         {filtered.map((q) => (
-          <Box key={q.id} variant="soft" className="p-3">
+          <Box
+            key={q.id}
+            variant="soft"
+            className={`p-3 ${multiSelect && selectedIds.has(q.id) ? 'bg-chip-blue' : ''}`}
+          >
             {editingId === q.id ? (
               <EditInline
                 q={q}
@@ -312,7 +484,16 @@ export function LibraryManage() {
                 onCancel={() => setEditingId(null)}
               />
             ) : (
-              <div>
+              <div className="flex gap-2 items-start">
+                {multiSelect && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(q.id)}
+                    onChange={() => toggleSelected(q.id)}
+                    className="mt-1 shrink-0 w-4 h-4"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
                 <p className="font-cn text-sm leading-relaxed mb-1">{q.stem}</p>
                 <div className="flex items-center gap-2 mt-1 text-xs flex-wrap">
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-ink text-ink text-[10px] font-handBold leading-none bg-chip-blue">
@@ -342,11 +523,15 @@ export function LibraryManage() {
                     <>答案：<span className="text-accent">&lt;空&gt;</span></>
                   )}
                 </div>
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-2 mt-2 flex-wrap">
                   <Button onClick={() => setEditingId(q.id)} className="text-xs">编辑</Button>
+                  <Button variant="ghost" onClick={() => cloneQuestion(q)} className="text-xs">
+                    🔁 克隆
+                  </Button>
                   <Button variant="ghost" onClick={() => handleDelete(q.id)} className="text-xs">
                     <span className="text-accent">删除</span>
                   </Button>
+                </div>
                 </div>
               </div>
             )}
