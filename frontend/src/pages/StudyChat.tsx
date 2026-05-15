@@ -62,14 +62,28 @@ export function StudyChat() {
   async function send() {
     const content = draft.trim();
     if (!content || sending || !pid) return;
+    // Optimistic: user 气泡先上, 输入框清空; 失败时回滚
+    const tempUser: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      content,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...(prev ?? []), tempUser]);
+    setDraft('');
     setSending(true);
     setError(null);
     try {
       const r = await api.postStudyChat(pid, content);
-      setMessages((prev) => [...(prev ?? []), r.userMessage, r.assistantMessage]);
-      setDraft('');
+      setMessages((prev) =>
+        (prev ?? [])
+          .filter((m) => m.id !== tempUser.id)
+          .concat([r.userMessage, r.assistantMessage]),
+      );
     } catch (e) {
       setError(String(e));
+      setMessages((prev) => (prev ?? []).filter((m) => m.id !== tempUser.id));
+      setDraft(content);
     } finally {
       setSending(false);
     }

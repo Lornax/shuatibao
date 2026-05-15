@@ -40,14 +40,30 @@ export function QuestionChat({ questionId }: { questionId: string }) {
   async function send() {
     const content = draft.trim();
     if (!content || sending) return;
+    // Optimistic: 立即把用户气泡顶上去, 输入框清空, 之后 await AI
+    const tempUser: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      content,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...(prev ?? []), tempUser]);
+    setDraft('');
     setSending(true);
     setError(null);
     try {
       const r = await api.postChatMessage(questionId, content);
-      setMessages((prev) => [...(prev ?? []), r.userMessage, r.assistantMessage]);
-      setDraft('');
+      // 替换临时 user 气泡 + 追加 AI 回复
+      setMessages((prev) =>
+        (prev ?? [])
+          .filter((m) => m.id !== tempUser.id)
+          .concat([r.userMessage, r.assistantMessage]),
+      );
     } catch (e) {
       setError(String(e));
+      // 失败回滚 user 消息, 把内容塞回输入框让用户改
+      setMessages((prev) => (prev ?? []).filter((m) => m.id !== tempUser.id));
+      setDraft(content);
     } finally {
       setSending(false);
     }
