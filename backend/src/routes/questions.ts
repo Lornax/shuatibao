@@ -127,7 +127,13 @@ router.get('/profiles/:pid/questions', async (c) => {
   const pid = c.req.param('pid');
   if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
 
-  const rows = await db
+  const limitParam = c.req.query('limit');
+  const offsetParam = c.req.query('offset');
+  const paginate = limitParam !== undefined;
+  const limit = paginate ? Math.min(Math.max(parseInt(limitParam!) || 20, 1), 200) : undefined;
+  const offset = paginate ? Math.max(parseInt(offsetParam ?? '0') || 0, 0) : 0;
+
+  const baseQuery = db
     .select({
       question: schema.questions,
       attemptTotal: sql<number>`COALESCE(COUNT(${schema.attempts.id}), 0)::int`,
@@ -142,12 +148,24 @@ router.get('/profiles/:pid/questions', async (c) => {
     .groupBy(schema.questions.id)
     .orderBy(desc(schema.questions.createdAt));
 
+  const rows = paginate
+    ? await baseQuery.limit(limit!).offset(offset)
+    : await baseQuery;
+
   const result = rows.map((r) => ({
     ...r.question,
     attemptTotal: r.attemptTotal,
     attemptCorrect: r.attemptCorrect,
     accuracy: r.attemptTotal > 0 ? r.attemptCorrect / r.attemptTotal : null,
   }));
+
+  if (paginate) {
+    const [{ total }] = await db
+      .select({ total: sql<number>`COUNT(*)::int` })
+      .from(schema.questions)
+      .where(eq(schema.questions.profileId, pid));
+    return c.json({ rows: result, total });
+  }
   return c.json(result);
 });
 

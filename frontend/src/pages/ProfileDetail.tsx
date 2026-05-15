@@ -9,13 +9,23 @@ export function ProfileDetail() {
   const nav = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
+  const [questionsTotal, setQuestionsTotal] = useState<number | null>(null);
   const [inflightJobs, setInflightJobs] = useState<ImportJobSummary[] | null>(null);
 
   useEffect(() => {
     if (!pid) return;
     // 三条并行，谁先到先 setState（progressive rendering）— 避免整页等 Promise.all
     api.getProfile(pid).then(setProfile).catch(() => setProfile(null));
-    api.listQuestions(pid).then(setQuestions).catch(() => setQuestions([]));
+    api
+      .listQuestionsPaged(pid, { limit: 8 })
+      .then((r) => {
+        setQuestions(r.rows);
+        setQuestionsTotal(r.total);
+      })
+      .catch(() => {
+        setQuestions([]);
+        setQuestionsTotal(0);
+      });
     api
       .listImportJobs(pid, ['pending', 'running', 'completed', 'failed'])
       .then((r) =>
@@ -84,7 +94,7 @@ export function ProfileDetail() {
           <Box variant="soft" className="p-3 text-center hover:bg-chip-cream">
             <div className="font-cn font-bold">+ 加题</div>
             <div className="font-cn text-xs text-ink-2 mt-1">
-              {questions ? `${questions.length} 道` : <SkeletonInline />}
+              {questionsTotal != null ? `${questionsTotal} 道` : <SkeletonInline />}
             </div>
           </Box>
         </Link>
@@ -117,7 +127,7 @@ export function ProfileDetail() {
         </Box>
       ) : (
         <div className="space-y-2">
-          {questions.slice(0, 8).map((q) => (
+          {questions.map((q) => (
             <Box key={q.id} variant="soft" className="p-3">
               <p className="font-cn text-sm leading-relaxed line-clamp-2">{q.stem}</p>
               <div className="flex items-center gap-2 mt-1">

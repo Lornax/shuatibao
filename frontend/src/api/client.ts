@@ -104,6 +104,11 @@ export const api = {
   getProfile: (id: string) => request<Profile>(`/profiles/${id}`),
 
   listQuestions: (pid: string) => request<Question[]>(`/profiles/${pid}/questions`),
+
+  listQuestionsPaged: (pid: string, opts: { limit: number; offset?: number }) =>
+    request<{ rows: Question[]; total: number }>(
+      `/profiles/${pid}/questions?limit=${opts.limit}&offset=${opts.offset ?? 0}`,
+    ),
   createQuestion: (
     pid: string,
     input: {

@@ -39,10 +39,17 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('zh-CN');
 }
 
+const PAGE_SIZE = 20;
+
+type LoadState = 'initial' | 'paged' | 'loading-full' | 'full';
+
 export function LibraryManage() {
   const { pid } = useParams<{ pid: string }>();
   const nav = useNavigate();
   const [list, setList] = useState<Question[] | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>('initial');
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
   const [scope, setScope] = useState<SearchScope>('all');
   const [dateRange, setDateRange] = useState<DateRange>('all');
@@ -52,21 +59,71 @@ export function LibraryManage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function reload() {
+  async function loadFirstPage() {
     if (!pid) return;
-    api.listQuestions(pid).then(setList).catch((e) => setError(String(e)));
+    try {
+      const r = await api.listQuestionsPaged(pid, { limit: PAGE_SIZE, offset: 0 });
+      setList(r.rows);
+      setTotal(r.total);
+      setLoadState(r.rows.length >= r.total ? 'full' : 'paged');
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function loadMore() {
+    if (!pid || !list || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const r = await api.listQuestionsPaged(pid, {
+        limit: PAGE_SIZE,
+        offset: list.length,
+      });
+      setList((prev) => (prev ? [...prev, ...r.rows] : r.rows));
+      setTotal(r.total);
+      if (list.length + r.rows.length >= r.total) setLoadState('full');
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function loadFull() {
+    if (!pid) return;
+    setLoadState('loading-full');
+    try {
+      const all = await api.listQuestions(pid);
+      setList(all);
+      setTotal(all.length);
+      setLoadState('full');
+    } catch (e) {
+      setError(String(e));
+      setLoadState('paged');
+    }
   }
 
   useEffect(() => {
-    reload();
+    loadFirstPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pid]);
+
+  // 用户开始搜索时，如果还没加载完，触发全量加载。
+  useEffect(() => {
+    if (search.trim() && loadState === 'paged') loadFull();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   async function handleDelete(id: string) {
     if (!confirm('确认删除这道题？此操作不可撤销')) return;
     try {
       await api.deleteQuestion(id);
-      reload();
+      // 删除后重新拉当前装载状态
+      if (loadState === 'full') {
+        loadFull();
+      } else {
+        loadFirstPage();
+      }
     } catch (e) {
       setError(String(e));
     }
@@ -139,20 +196,25 @@ export function LibraryManage() {
   }, [list, sinceMs, sourceFilter, diffFilter, search, scope]);
 
   return (
-    <Layout title={`题库 (${list?.length ?? 0})`} back={() => nav(`/profiles/${pid}`)}>
+    <Layout title={`题库 (${total ?? 0})`} back={() => nav(`/profiles/${pid}`)}>
       <div className="space-y-3">
         <div className="flex gap-2 items-stretch">
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 relative">
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={
-                scope === 'stem' ? '搜题干...' :
-                scope === 'tag' ? '搜标签...' :
-                scope === 'chapter' ? '搜章节...' :
-                '搜题干 / 标签 / 章节...'
+                loadState === 'loading-full'
+                  ? '正在为搜索加载全部题...'
+                  : scope === 'stem' ? '搜题干...'
+                  : scope === 'tag' ? '搜标签...'
+                  : scope === 'chapter' ? '搜章节...'
+                  : '搜题干 / 标签 / 章节...'
               }
             />
+            {loadState === 'loading-full' && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-block w-3 h-3 border-2 border-ink border-t-transparent rounded-full animate-spin" />
+            )}
           </div>
           <button
             onClick={() => setFiltersOpen((v) => !v)}
@@ -213,7 +275,20 @@ export function LibraryManage() {
             <p className="font-cn text-xs text-accent">{error}</p>
           </Box>
         )}
-        {list === null && <p className="font-cn text-sm text-ink-2">加载中...</p>}
+        {list === null && (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div
+                key={i}
+                className="border border-ink/20 rounded-soft p-3 bg-white animate-pulse"
+              >
+                <div className="h-3 w-full bg-ink/15 rounded mb-2" />
+                <div className="h-3 w-3/4 bg-ink/15 rounded mb-2" />
+                <div className="h-2 w-1/3 bg-ink/15 rounded" />
+              </div>
+            ))}
+          </div>
+        )}
         {list?.length === 0 && (
           <Box variant="dashed" className="p-4 text-center">
             <p className="font-cn text-sm text-ink-2">题库还空着</p>
@@ -229,7 +304,11 @@ export function LibraryManage() {
             {editingId === q.id ? (
               <EditInline
                 q={q}
-                onSaved={() => { setEditingId(null); reload(); }}
+                onSaved={() => {
+                  setEditingId(null);
+                  if (loadState === 'full') loadFull();
+                  else loadFirstPage();
+                }}
                 onCancel={() => setEditingId(null)}
               />
             ) : (
@@ -273,6 +352,27 @@ export function LibraryManage() {
             )}
           </Box>
         ))}
+
+        {loadState === 'paged' && list && total != null && list.length < total && (
+          <Box variant="dashed" className="p-3 text-center">
+            <p className="font-cn text-xs text-ink-3 mb-2">
+              已加载 {list.length} / {total} 道
+            </p>
+            <Button
+              variant="ghost"
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="text-xs"
+            >
+              {loadingMore ? '加载中...' : '加载更多'}
+            </Button>
+          </Box>
+        )}
+        {loadState === 'full' && list && total != null && total > PAGE_SIZE && (
+          <p className="font-cn text-[11px] text-ink-3 text-center pt-1">
+            已加载全部 {total} 道
+          </p>
+        )}
       </div>
     </Layout>
   );
