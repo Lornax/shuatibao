@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
 import { processTextbook, registerTextbookBuffer } from '../lib/textbook-worker.js';
@@ -125,6 +125,50 @@ router.get('/profiles/:pid/textbooks/:tid', async (c) => {
     createdAt: row.createdAt,
     finishedAt: row.finishedAt,
   });
+});
+
+router.get('/profiles/:pid/textbooks/:tid/chapters', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  const tid = c.req.param('tid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  // verify textbook belongs to profile
+  const [tb] = await db
+    .select({ id: schema.textbooks.id })
+    .from(schema.textbooks)
+    .where(and(eq(schema.textbooks.id, tid), eq(schema.textbooks.profileId, pid)))
+    .limit(1);
+  if (!tb) return c.json({ error: 'not_found' }, 404);
+
+  // chapter | chunkCount | pageStart | pageEnd, ordered by pageStart
+  const rows = await db
+    .select({
+      chapter: schema.textbookChunks.chapter,
+      chunkCount: sql<number>`count(*)::int`,
+      pageStart: sql<number>`min(${schema.textbookChunks.pageStart})::int`,
+      pageEnd: sql<number>`max(${schema.textbookChunks.pageEnd})::int`,
+    })
+    .from(schema.textbookChunks)
+    .where(eq(schema.textbookChunks.textbookId, tid))
+    .groupBy(schema.textbookChunks.chapter)
+    .orderBy(sql`min(${schema.textbookChunks.pageStart}) NULLS LAST`);
+
+  return c.json({ chapters: rows });
+});
+
+// 该 profile 下所有教材合并的章节集合（dedupe），AI 出题表单用作 datalist
+router.get('/profiles/:pid/chapters', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  const rows = await db
+    .selectDistinct({ chapter: schema.textbookChunks.chapter })
+    .from(schema.textbookChunks)
+    .where(and(eq(schema.textbookChunks.profileId, pid), sql`${schema.textbookChunks.chapter} is not null`));
+
+  return c.json({ chapters: rows.map((r) => r.chapter).filter(Boolean) });
 });
 
 router.delete('/profiles/:pid/textbooks/:tid', async (c) => {

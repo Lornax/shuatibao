@@ -321,6 +321,14 @@ export const api = {
   deleteTextbook: (pid: string, tid: string) =>
     request<{ ok: true }>(`/profiles/${pid}/textbooks/${tid}`, { method: 'DELETE' }),
 
+  listTextbookChapters: (pid: string, tid: string) =>
+    request<{
+      chapters: { chapter: string | null; chunkCount: number; pageStart: number | null; pageEnd: number | null }[];
+    }>(`/profiles/${pid}/textbooks/${tid}/chapters`),
+
+  listProfileChapters: (pid: string) =>
+    request<{ chapters: string[] }>(`/profiles/${pid}/chapters`),
+
   nextQuiz: (pid: string, opts: { wrongOnly?: boolean } = {}) =>
     request<Question | { done: true }>(
       `/profiles/${pid}/quiz/next${opts.wrongOnly ? '?wrong_only=true' : ''}`,

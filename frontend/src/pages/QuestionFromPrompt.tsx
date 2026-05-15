@@ -18,10 +18,12 @@ export function QuestionFromPrompt() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyTags, setHistoryTags] = useState<{ tag: string; cnt: number }[]>([]);
+  const [bookChapters, setBookChapters] = useState<string[]>([]);
 
   useEffect(() => {
     if (!pid) return;
     api.listTags(pid).then(setHistoryTags).catch(() => setHistoryTags([]));
+    api.listProfileChapters(pid).then((r) => setBookChapters(r.chapters)).catch(() => setBookChapters([]));
   }, [pid]);
 
   function appendTopic(tag: string) {
@@ -66,11 +68,27 @@ export function QuestionFromPrompt() {
         </div>
         <div>
           <label className="font-cn font-bold text-sm block mb-1">教材章节（选填）</label>
-          <Input
+          <input
+            list={`tb-chapters-${pid}`}
             value={chapter}
             onChange={(e) => setChapter(e.target.value)}
-            placeholder="例：第 3 章 / Ch.5"
+            placeholder={
+              bookChapters.length > 0
+                ? '输入或从教材识别的章节中选'
+                : '例：第 3 章 / Ch.5（上传教材后这里会自动补全）'
+            }
+            className="border-[1.5px] border-ink rounded-lg bg-white px-3 py-2 font-cn text-sm text-ink w-full focus:outline-none focus:ring-2 focus:ring-accent"
           />
+          <datalist id={`tb-chapters-${pid}`}>
+            {bookChapters.map((ch) => (
+              <option key={ch} value={ch} />
+            ))}
+          </datalist>
+          {bookChapters.length > 0 && (
+            <p className="font-cn text-[11px] text-ink-3 mt-1">
+              已从教材识别 {bookChapters.length} 个章节，输入框点一下能弹出列表
+            </p>
+          )}
         </div>
         <div>
           <label className="font-cn font-bold text-sm block mb-1">考点关键词（选填，逗号分隔）</label>

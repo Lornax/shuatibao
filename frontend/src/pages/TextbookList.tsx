@@ -118,7 +118,7 @@ export function TextbookList() {
 
         <div className="space-y-2">
           {list?.map((tb) => (
-            <TextbookCard key={tb.id} tb={tb} onDelete={() => handleDelete(tb)} />
+            <TextbookCard key={tb.id} tb={tb} pid={pid!} onDelete={() => handleDelete(tb)} />
           ))}
         </div>
       </div>
@@ -126,8 +126,43 @@ export function TextbookList() {
   );
 }
 
-function TextbookCard({ tb, onDelete }: { tb: Textbook; onDelete: () => void }) {
+function TextbookCard({
+  tb,
+  pid,
+  onDelete,
+}: {
+  tb: Textbook;
+  pid: string;
+  onDelete: () => void;
+}) {
   const statusInfo = STATUS_INFO[tb.status];
+  const [chaptersOpen, setChaptersOpen] = useState(false);
+  const [chapters, setChapters] = useState<
+    | null
+    | {
+        chapter: string | null;
+        chunkCount: number;
+        pageStart: number | null;
+        pageEnd: number | null;
+      }[]
+  >(null);
+
+  async function toggleChapters() {
+    if (chaptersOpen) {
+      setChaptersOpen(false);
+      return;
+    }
+    setChaptersOpen(true);
+    if (chapters === null) {
+      try {
+        const r = await api.listTextbookChapters(pid, tb.id);
+        setChapters(r.chapters);
+      } catch {
+        setChapters([]);
+      }
+    }
+  }
+
   return (
     <Box variant="soft" className="p-3">
       <div className="flex items-center justify-between mb-1">
@@ -157,6 +192,43 @@ function TextbookCard({ tb, onDelete }: { tb: Textbook; onDelete: () => void }) 
           <div className="text-accent break-words">⚠ {tb.error}</div>
         )}
       </div>
+
+      {tb.status === 'ready' && (
+        <div className="mt-2">
+          <button
+            onClick={toggleChapters}
+            className="font-cn text-xs text-ink-2 underline"
+          >
+            📑 章节明细 {chaptersOpen ? '▴' : '▾'}
+          </button>
+          {chaptersOpen && (
+            <Box variant="dashed" className="p-2 mt-2 bg-paper">
+              {chapters === null && (
+                <p className="font-cn text-xs text-ink-3">加载中...</p>
+              )}
+              {chapters && chapters.length === 0 && (
+                <p className="font-cn text-xs text-ink-3">没有识别到章节</p>
+              )}
+              {chapters && chapters.length > 0 && (
+                <ul className="space-y-1 font-cn text-xs">
+                  {chapters.map((c, i) => (
+                    <li key={i} className="flex items-center gap-2">
+                      <span className="flex-1 truncate">
+                        {c.chapter ?? <span className="text-ink-3 italic">未识别章节</span>}
+                      </span>
+                      <span className="text-ink-3 text-[11px] shrink-0">
+                        {c.chunkCount} 段
+                        {c.pageStart != null && ` · 第 ${c.pageStart}${c.pageEnd && c.pageEnd !== c.pageStart ? `-${c.pageEnd}` : ''} 页`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Box>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2 mt-2 items-center">
         {tb.cosDownloadUrl && (
           <a
