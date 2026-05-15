@@ -20,14 +20,32 @@ export type TextbookChunk = {
   content: string;
 };
 
+// 用于"找位置"：宽匹配, 把后面 80 字符吃进来是为了能在文本里准确定位章节起点
 const CHAPTER_RE = /(?:^|\n)\s*(第\s*[一二三四五六七八九十百零〇\d]{1,4}\s*章[^\n]{0,80}|Chapter\s+\d+[^\n]{0,80})/g;
+// 用于"提取章节号"
 const CHAPTER_NUM_RE = /第\s*([一二三四五六七八九十百零〇\d]+)\s*章|Chapter\s+(\d+)/;
+// 用于"提取干净标题"：章节号后紧跟的若干字符, 遇数字/英文 / 标点 / 多空格立即停
+const CHAPTER_TITLE_CLEAN_RE = /^(第\s*[一二三四五六七八九十百零〇\d]{1,4}\s*章|Chapter\s+\d+)\s*([一-龥　-〿·。、]{0,20})/;
 const CN_DIGITS: Record<string, number> = {
   零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9,
 };
 const TARGET_CHUNK = 1000;
 const MIN_CHUNK = 200;
 const ALIGN_WINDOW = 200;
+
+/**
+ * Clean a raw chapter match. PDF text frequently has the chapter title bleed
+ * into body content (e.g. "第 1 章战略＠一一 SWOT 优势..."). We want just
+ * "第 1 章 战略". Strategy: keep "第 N 章" / "Chapter N" + at most ~20 chars
+ * of Chinese title following it, stop at first non-CJK character.
+ */
+function cleanChapterTitle(raw: string): string {
+  const m = raw.match(CHAPTER_TITLE_CLEAN_RE);
+  if (!m) return raw.trim().slice(0, 30);
+  const prefix = m[1].replace(/\s+/g, ' ').trim();
+  const titleBody = (m[2] || '').trim();
+  return titleBody ? `${prefix} ${titleBody}` : prefix;
+}
 
 /**
  * Parse a Chinese chapter number like "一", "十", "十一", "二十三" into int.
@@ -100,8 +118,9 @@ export async function parseTextbook(
   CHAPTER_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = CHAPTER_RE.exec(totalText)) !== null) {
-    const title = m[1].trim().replace(/\s+/g, ' ').slice(0, 100);
-    allMatches.push({ offset: m.index, title, num: parseChapterNumber(title) });
+    const raw = m[1].trim().replace(/\s+/g, ' ');
+    const cleanTitle = cleanChapterTitle(raw);
+    allMatches.push({ offset: m.index, title: cleanTitle, num: parseChapterNumber(raw) });
   }
 
   // Dedupe by chapter number: keep the **earliest** occurrence per number

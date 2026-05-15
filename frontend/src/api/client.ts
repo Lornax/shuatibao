@@ -321,6 +321,9 @@ export const api = {
   deleteTextbook: (pid: string, tid: string) =>
     request<{ ok: true }>(`/profiles/${pid}/textbooks/${tid}`, { method: 'DELETE' }),
 
+  reprocessTextbook: (pid: string, tid: string) =>
+    request<{ ok: true }>(`/profiles/${pid}/textbooks/${tid}/reprocess`, { method: 'POST' }),
+
   listTextbookChapters: (pid: string, tid: string) =>
     request<{
       chapters: { chapter: string | null; chunkCount: number; pageStart: number | null; pageEnd: number | null }[];

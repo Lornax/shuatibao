@@ -66,6 +66,18 @@ export function TextbookList() {
     }
   }
 
+  async function handleReprocess(tb: Textbook) {
+    if (!pid) return;
+    if (!window.confirm(`重新处理「${tb.filename}」？\n将用最新的章节识别 + 切片逻辑重新嵌入（几分钟），原文件不变。`))
+      return;
+    try {
+      await api.reprocessTextbook(pid, tb.id);
+      load();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   return (
     <Layout title="教材库" back={() => nav(`/profiles/${pid}`)}>
       <div className="space-y-3">
@@ -118,7 +130,13 @@ export function TextbookList() {
 
         <div className="space-y-2">
           {list?.map((tb) => (
-            <TextbookCard key={tb.id} tb={tb} pid={pid!} onDelete={() => handleDelete(tb)} />
+            <TextbookCard
+              key={tb.id}
+              tb={tb}
+              pid={pid!}
+              onDelete={() => handleDelete(tb)}
+              onReprocess={() => handleReprocess(tb)}
+            />
           ))}
         </div>
       </div>
@@ -130,10 +148,12 @@ function TextbookCard({
   tb,
   pid,
   onDelete,
+  onReprocess,
 }: {
   tb: Textbook;
   pid: string;
   onDelete: () => void;
+  onReprocess: () => void;
 }) {
   const statusInfo = STATUS_INFO[tb.status];
   const [chaptersOpen, setChaptersOpen] = useState(false);
@@ -229,7 +249,7 @@ function TextbookCard({
         </div>
       )}
 
-      <div className="flex gap-2 mt-2 items-center">
+      <div className="flex gap-2 mt-2 items-center flex-wrap">
         {tb.cosDownloadUrl && (
           <a
             href={tb.cosDownloadUrl}
@@ -239,6 +259,15 @@ function TextbookCard({
           >
             📄 下载原文件
           </a>
+        )}
+        {tb.status !== 'processing' && tb.cosDownloadUrl && (
+          <button
+            onClick={onReprocess}
+            className="font-cn text-xs text-ink-2 underline"
+            title="用最新的章节识别 + 切片逻辑重处理（不重新上传）"
+          >
+            ♻ 重新处理
+          </button>
         )}
         <button
           onClick={onDelete}
