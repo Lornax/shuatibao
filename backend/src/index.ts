@@ -14,6 +14,7 @@ import { solveRouter } from './routes/solve.js';
 import { tagsRouter } from './routes/tags.js';
 import { importJobsRouter } from './routes/import-jobs.js';
 import { chatRouter } from './routes/chat.js';
+import { studyChatRouter } from './routes/study-chat.js';
 import { selfHealOnBoot } from './lib/import-worker.js';
 
 const app = new Hono<{ Variables: AuthVars }>();
@@ -54,6 +55,7 @@ app.route('/api', solveRouter);
 app.route('/api', tagsRouter);
 app.route('/api', importJobsRouter);
 app.route('/api', chatRouter);
+app.route('/api', studyChatRouter);
 
 // production: serve the built frontend as a SPA from ./public
 if (isProd) {

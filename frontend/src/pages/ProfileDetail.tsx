@@ -89,7 +89,7 @@ export function ProfileDetail() {
         <SkeletonHeader />
       )}
 
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <Link to={`/profiles/${pid}/questions/new`}>
           <Box variant="soft" className="p-3 text-center hover:bg-chip-cream">
             <div className="font-cn font-bold">+ 加题</div>
@@ -108,6 +108,12 @@ export function ProfileDetail() {
           <Box variant="soft" className="p-3 text-center hover:bg-chip-cream">
             <div className="font-cn font-bold">错题本</div>
             <div className="font-cn text-xs text-ink-2 mt-1">查看</div>
+          </Box>
+        </Link>
+        <Link to={`/profiles/${pid}/study-chat`}>
+          <Box variant="thick" className="p-3 text-center bg-chip-cream">
+            <div className="font-cn font-bold">💬 AI 陪学</div>
+            <div className="font-cn text-xs text-ink-2 mt-1">主动建议</div>
           </Box>
         </Link>
       </div>

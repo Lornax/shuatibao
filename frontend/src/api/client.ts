@@ -248,6 +248,24 @@ export const api = {
   clearChatMessages: (qid: string) =>
     request<{ ok: true }>(`/questions/${qid}/chat`, { method: 'DELETE' }),
 
+  listStudyChat: (pid: string) =>
+    request<{ messages: ChatMessage[] }>(`/profiles/${pid}/study-chat`),
+
+  postStudyChat: (pid: string, content: string) =>
+    request<{ userMessage: ChatMessage; assistantMessage: ChatMessage }>(
+      `/profiles/${pid}/study-chat`,
+      { method: 'POST', body: JSON.stringify({ content }) },
+    ),
+
+  ensureStudyWelcome: (pid: string) =>
+    request<{ message: ChatMessage | null; skipped: boolean }>(
+      `/profiles/${pid}/study-chat/welcome`,
+      { method: 'POST' },
+    ),
+
+  clearStudyChat: (pid: string) =>
+    request<{ ok: true }>(`/profiles/${pid}/study-chat`, { method: 'DELETE' }),
+
   nextQuiz: (pid: string, opts: { wrongOnly?: boolean } = {}) =>
     request<Question | { done: true }>(
       `/profiles/${pid}/quiz/next${opts.wrongOnly ? '?wrong_only=true' : ''}`,

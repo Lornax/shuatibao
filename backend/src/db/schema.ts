@@ -103,3 +103,14 @@ export const wrongbookEntries = pgTable('wrongbook_entries', {
 }, (t) => ({
   uniq: uniqueIndex('wrongbook_entries_uniq_idx').on(t.questionId, t.userId),
 }));
+
+export const studyChatMessages = pgTable('study_chat_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: chatRole('role').notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  profileIdx: index('study_chat_profile_idx').on(t.profileId, t.createdAt),
+}));

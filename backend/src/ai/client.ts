@@ -172,6 +172,89 @@ export async function chatAboutQuestion(
   return reply;
 }
 
+export type ProfileContext = {
+  examName: string;
+  target: string | null;
+  dailyMinutes: number;
+};
+
+export type StudyStatsContext = {
+  totalQuestions: number;
+  wrongbookCount: number;
+  attemptsLast7Days: number;
+  recentAttemptDates: string[];
+  daysSinceLastAttempt: number | null;
+  daysUntilExam: number | null;
+};
+
+function buildStudySystemPrompt(profile: ProfileContext, stats: StudyStatsContext): string {
+  const lines = [
+    `你是 ${profile.examName} 备考的 AI 陪学助手。下面是用户最新的学习状态：`,
+    `- 考试：${profile.examName}${profile.target ? `（目标：${profile.target}）` : ''}`,
+    `- 每天计划：${profile.dailyMinutes} 分钟`,
+    stats.daysUntilExam != null
+      ? `- 距离考试：${stats.daysUntilExam >= 0 ? `还剩 ${stats.daysUntilExam} 天` : `已过期 ${-stats.daysUntilExam} 天`}`
+      : '- 考试日期：未设',
+    `- 题库总数：${stats.totalQuestions} 道`,
+    `- 错题本：${stats.wrongbookCount} 道未掌握`,
+    `- 近 7 天答题：${stats.attemptsLast7Days} 次`,
+    stats.daysSinceLastAttempt != null
+      ? `- 上次答题：${stats.daysSinceLastAttempt} 天前`
+      : '- 还没开始答题',
+    '',
+    '原则：',
+    '- 中文，移动端阅读，**控制 200 字内**',
+    '- 给具体可执行建议（"今天先刷错题本 10 道"），不要泛泛而谈',
+    '- 如果用户连续 2 天没答题，温柔催促但不说教',
+    '- 如果错题本 > 20 道，建议优先清积压',
+    '- 如果距考试 < 30 天，重点强调冲刺策略；> 60 天 重在节奏稳定',
+  ];
+  return lines.join('\n');
+}
+
+export async function generateStudyWelcome(
+  profile: ProfileContext,
+  stats: StudyStatsContext,
+): Promise<string> {
+  const systemPrompt = buildStudySystemPrompt(profile, stats);
+  const r = await client.chat.completions.create({
+    model: MODEL_CHAT,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content:
+          '请用 2-3 句话开场，根据当前数据给出**一个**最具体的行动建议。不要复述上面的数据，直接给建议。',
+      },
+    ],
+    temperature: 0.5,
+  });
+  const reply = r.choices[0]?.message?.content?.trim() ?? '';
+  if (!reply) throw new Error('AI 返回空 welcome');
+  return reply;
+}
+
+export async function chatStudy(
+  profile: ProfileContext,
+  stats: StudyStatsContext,
+  history: ChatHistoryMessage[],
+  newUserMessage: string,
+): Promise<string> {
+  const systemPrompt = buildStudySystemPrompt(profile, stats);
+  const r = await client.chat.completions.create({
+    model: MODEL_CHAT,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...history.map((m) => ({ role: m.role, content: m.content })),
+      { role: 'user', content: newUserMessage },
+    ],
+    temperature: 0.5,
+  });
+  const reply = r.choices[0]?.message?.content?.trim() ?? '';
+  if (!reply) throw new Error('AI 返回空回复');
+  return reply;
+}
+
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length) throw new Error('vector length mismatch');
   let dot = 0;
