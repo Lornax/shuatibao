@@ -4,6 +4,7 @@ import { api, type Question } from '../api/client';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
 import { Layout } from '../components/Layout';
+import { QuestionChat } from '../components/QuestionChat';
 
 type AnsweredRecord = {
   q: Question;
@@ -383,7 +384,31 @@ function RevealedView({
           </>
         )}
       </Box>
+
+      <ChatPanel questionId={record.q.id} />
+
       {children}
     </div>
+  );
+}
+
+function ChatPanel({ questionId }: { questionId: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Box variant="dashed" className="p-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left font-cn text-sm font-bold flex items-center justify-between"
+      >
+        <span>💬 跟 AI 聊这道题</span>
+        <span className="font-handBold">{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <div className="mt-3">
+          <QuestionChat questionId={questionId} />
+        </div>
+      )}
+    </Box>
   );
 }

@@ -20,6 +20,7 @@ const client = new OpenAI({
 const MODEL_VISION = 'qwen-vl-max';
 const MODEL_TEXT = 'qwen-max';
 const MODEL_EMBEDDING = 'text-embedding-v3';
+const MODEL_CHAT = 'deepseek-v3';
 
 export async function recognizeQuestionFromImage(imageBase64DataUrl: string): Promise<CandidateQuestion> {
   const r = await client.chat.completions.create({
@@ -121,6 +122,54 @@ export async function embed(texts: string[]): Promise<number[][]> {
     input: texts,
   });
   return r.data.map((d) => d.embedding);
+}
+
+export type ChatHistoryMessage = { role: 'user' | 'assistant'; content: string };
+
+export type QuestionContext = {
+  stem: string;
+  options: { key: string; text: string }[];
+  answer: string;
+  explanation: string | null;
+};
+
+const CHAT_SYSTEM_PROMPT_TEMPLATE = `你是 NPDP 备考的陪学助手。下面是用户正在学习的一道题：
+
+题干：{stem}
+选项：
+{options}
+正确答案：{answer}
+官方解析：{explanation}
+
+请围绕这道题的考点回答用户的问题（"为什么选 A"、"还有哪些相关考点"、"这个概念跟 X 有什么区别"等）。
+- 用中文，移动端阅读，**控制 200 字以内**
+- 不要重复整道题，直接回答用户的问题
+- 引用具体选项时用「A 选项 / B 选项」格式`;
+
+export async function chatAboutQuestion(
+  question: QuestionContext,
+  history: ChatHistoryMessage[],
+  newUserMessage: string,
+): Promise<string> {
+  const optionsStr = question.options.map((o) => `${o.key}. ${o.text}`).join('\n');
+  const systemPrompt = CHAT_SYSTEM_PROMPT_TEMPLATE
+    .replace('{stem}', question.stem)
+    .replace('{options}', optionsStr)
+    .replace('{answer}', question.answer || '（未标注）')
+    .replace('{explanation}', question.explanation || '（无）');
+
+  const r = await client.chat.completions.create({
+    model: MODEL_CHAT,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...history.map((m) => ({ role: m.role, content: m.content })),
+      { role: 'user', content: newUserMessage },
+    ],
+    temperature: 0.5,
+  });
+  const reply = r.choices[0]?.message?.content?.trim() ?? '';
+  if (!reply) throw new Error('AI 返回了空回复');
+  return reply;
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {

@@ -22,6 +22,13 @@
       "when": 1778772486199,
       "tag": "0002_import_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778820570748,
+      "tag": "0003_chat_messages",
+      "breakpoints": true
     }
   ]
 }

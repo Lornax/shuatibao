@@ -66,6 +66,13 @@ export type SimilarQuestion = {
   similarity: number;
 };
 
+export type ChatMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+};
+
 export type ImportJobStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 export type ImportJobSummary = {
@@ -215,6 +222,18 @@ export const api = {
       `/questions/${qid}/solve`,
       { method: 'POST' },
     ),
+
+  listChatMessages: (qid: string) =>
+    request<{ messages: ChatMessage[] }>(`/questions/${qid}/chat`),
+
+  postChatMessage: (qid: string, content: string) =>
+    request<{ userMessage: ChatMessage; assistantMessage: ChatMessage }>(
+      `/questions/${qid}/chat`,
+      { method: 'POST', body: JSON.stringify({ content }) },
+    ),
+
+  clearChatMessages: (qid: string) =>
+    request<{ ok: true }>(`/questions/${qid}/chat`, { method: 'DELETE' }),
 
   nextQuiz: (pid: string, opts: { wrongOnly?: boolean } = {}) =>
     request<Question | { done: true }>(

@@ -8,6 +8,7 @@ export const importJobStatus = pgEnum('import_job_status', [
   'completed',
   'failed',
 ]);
+export const chatRole = pgEnum('chat_role', ['user', 'assistant']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -77,4 +78,15 @@ export const attempts = pgTable('attempts', {
 }, (t) => ({
   questionIdx: index('attempts_question_idx').on(t.questionId),
   userIdx: index('attempts_user_idx').on(t.userId),
+}));
+
+export const chatMessages = pgTable('chat_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  questionId: uuid('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: chatRole('role').notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  questionIdx: index('chat_messages_question_idx').on(t.questionId, t.createdAt),
 }));
