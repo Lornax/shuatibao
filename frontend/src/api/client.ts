@@ -66,6 +66,22 @@ export type SimilarQuestion = {
   similarity: number;
 };
 
+export type TextbookStatus = 'processing' | 'ready' | 'failed';
+
+export type Textbook = {
+  id: string;
+  filename: string;
+  fileSize: number;
+  totalPages: number;
+  status: TextbookStatus;
+  chunkCount: number;
+  chapterCount: number;
+  error: string | null;
+  cosDownloadUrl: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+};
+
 export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
@@ -265,6 +281,29 @@ export const api = {
 
   clearStudyChat: (pid: string) =>
     request<{ ok: true }>(`/profiles/${pid}/study-chat`, { method: 'DELETE' }),
+
+  listTextbooks: (pid: string) =>
+    request<{ textbooks: Textbook[] }>(`/profiles/${pid}/textbooks`),
+
+  getTextbook: (pid: string, tid: string) =>
+    request<Textbook>(`/profiles/${pid}/textbooks/${tid}`),
+
+  uploadTextbook: (pid: string, file: File) => {
+    const fd = new FormData();
+    fd.set('pdf', file);
+    return fetch(`/api/profiles/${pid}/textbooks`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}` },
+      body: fd,
+    }).then(async (res) => {
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 201) return { id: body.id as string };
+      throw new Error(`uploadTextbook ${res.status}: ${JSON.stringify(body)}`);
+    });
+  },
+
+  deleteTextbook: (pid: string, tid: string) =>
+    request<{ ok: true }>(`/profiles/${pid}/textbooks/${tid}`, { method: 'DELETE' }),
 
   nextQuiz: (pid: string, opts: { wrongOnly?: boolean } = {}) =>
     request<Question | { done: true }>(

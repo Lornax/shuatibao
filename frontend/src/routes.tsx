@@ -14,6 +14,7 @@ import { ImportJobProgress } from './pages/ImportJobProgress';
 import { ReviewQueue } from './pages/ReviewQueue';
 import { ReviewItem } from './pages/ReviewItem';
 import { StudyChat } from './pages/StudyChat';
+import { TextbookList } from './pages/TextbookList';
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/profiles" replace /> },
@@ -33,4 +34,5 @@ export const router = createBrowserRouter([
   { path: '/profiles/:pid/import-jobs/:jid/review', element: <ReviewQueue /> },
   { path: '/profiles/:pid/import-jobs/:jid/review/:idx', element: <ReviewItem /> },
   { path: '/profiles/:pid/study-chat', element: <StudyChat /> },
+  { path: '/profiles/:pid/textbooks', element: <TextbookList /> },
 ]);

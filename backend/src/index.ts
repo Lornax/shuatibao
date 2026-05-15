@@ -15,6 +15,8 @@ import { tagsRouter } from './routes/tags.js';
 import { importJobsRouter } from './routes/import-jobs.js';
 import { chatRouter } from './routes/chat.js';
 import { studyChatRouter } from './routes/study-chat.js';
+import { textbooksRouter } from './routes/textbooks.js';
+import { selfHealTextbooksOnBoot } from './lib/textbook-worker.js';
 import { selfHealOnBoot } from './lib/import-worker.js';
 
 const app = new Hono<{ Variables: AuthVars }>();
@@ -56,6 +58,7 @@ app.route('/api', tagsRouter);
 app.route('/api', importJobsRouter);
 app.route('/api', chatRouter);
 app.route('/api', studyChatRouter);
+app.route('/api', textbooksRouter);
 
 // production: serve the built frontend as a SPA from ./public
 if (isProd) {
@@ -83,6 +86,11 @@ if (process.env.NODE_ENV !== 'test' && import.meta.url === `file://${process.arg
       if (n > 0) console.log(`[import-jobs] self-healed ${n} stale job(s) on boot`);
     })
     .catch((e) => console.error('[import-jobs] self-heal failed', e));
+  selfHealTextbooksOnBoot()
+    .then((n) => {
+      if (n > 0) console.log(`[textbooks] self-healed ${n} stale textbook(s) on boot`);
+    })
+    .catch((e) => console.error('[textbooks] self-heal failed', e));
   serve({ fetch: app.fetch, port: config.PORT }, (info) => {
     console.log(`backend listening on :${info.port}`);
   });

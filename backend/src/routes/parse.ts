@@ -8,6 +8,7 @@ import {
   generateQuestionFromPrompt,
   structureQuestionsFromPdfText,
 } from '../ai/client.js';
+import { formatChunksForPrompt, retrieveRelevantChunks } from '../lib/textbook-rag.js';
 // pdf-parse has no types; runtime import OK
 // @ts-expect-error pdf-parse has no types
 import pdfParse from 'pdf-parse';
@@ -63,12 +64,25 @@ router.post('/profiles/:pid/parse/prompt', async (c) => {
   const parsed = promptSchema.safeParse(body);
   if (!parsed.success) return c.json({ error: 'invalid_body' }, 400);
 
+  // RAG: best-effort textbook lookup using knowledge + chapter + topics
+  let textbookReference: string | undefined;
+  try {
+    const ragQuery = [parsed.data.knowledge, parsed.data.chapter, parsed.data.topics]
+      .filter(Boolean)
+      .join(' ');
+    const chunks = await retrieveRelevantChunks(pid, ragQuery, 3);
+    if (chunks.length > 0) textbookReference = formatChunksForPrompt(chunks);
+  } catch (e) {
+    console.error('[parse/prompt] RAG retrieval failed (continuing):', e);
+  }
+
   try {
     const candidate = await generateQuestionFromPrompt(
       parsed.data.knowledge,
       parsed.data.difficulty,
       parsed.data.chapter,
       parsed.data.topics,
+      textbookReference,
     );
     return c.json({ candidate, source: 'ai_gen' });
   } catch (e) {

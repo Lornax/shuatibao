@@ -114,3 +114,42 @@ export const studyChatMessages = pgTable('study_chat_messages', {
 }, (t) => ({
   profileIdx: index('study_chat_profile_idx').on(t.profileId, t.createdAt),
 }));
+
+export const textbookStatus = pgEnum('textbook_status', [
+  'processing',
+  'ready',
+  'failed',
+]);
+
+export const textbooks = pgTable('textbooks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  filename: text('filename').notNull(),
+  fileSize: integer('file_size').notNull(),
+  totalPages: integer('total_pages').default(0).notNull(),
+  cosUrl: text('cos_url'),
+  status: textbookStatus('status').default('processing').notNull(),
+  chunkCount: integer('chunk_count').default(0).notNull(),
+  chapterCount: integer('chapter_count').default(0).notNull(),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+}, (t) => ({
+  profileIdx: index('textbooks_profile_idx').on(t.profileId),
+  statusIdx: index('textbooks_status_idx').on(t.status),
+}));
+
+export const textbookChunks = pgTable('textbook_chunks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  textbookId: uuid('textbook_id').notNull().references(() => textbooks.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  chapter: text('chapter'),
+  pageStart: integer('page_start'),
+  pageEnd: integer('page_end'),
+  content: text('content').notNull(),
+  embedding: jsonb('embedding').$type<number[]>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  profileIdx: index('textbook_chunks_profile_idx').on(t.profileId),
+}));

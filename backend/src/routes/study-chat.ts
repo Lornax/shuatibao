@@ -9,6 +9,7 @@ import {
   type ChatHistoryMessage,
 } from '../ai/client.js';
 import { getStudyStats } from '../lib/study-stats.js';
+import { formatChunksForPrompt, retrieveRelevantChunks } from '../lib/textbook-rag.js';
 
 const router = new Hono<{ Variables: AuthVars }>();
 
@@ -73,6 +74,14 @@ router.post('/profiles/:pid/study-chat', async (c) => {
     .returning();
 
   const stats = await getStudyStats(pid, userId, profile.examDate);
+  // RAG: pull relevant textbook chunks for this query (best-effort)
+  let textbookReference: string | undefined;
+  try {
+    const chunks = await retrieveRelevantChunks(pid, parsed.data.content, 3);
+    if (chunks.length > 0) textbookReference = formatChunksForPrompt(chunks);
+  } catch (e) {
+    console.error('[study-chat] RAG retrieval failed (continuing):', e);
+  }
   let aiReply: string;
   try {
     aiReply = await chatStudy(
@@ -84,6 +93,7 @@ router.post('/profiles/:pid/study-chat', async (c) => {
       stats,
       history as ChatHistoryMessage[],
       parsed.data.content.trim(),
+      textbookReference,
     );
   } catch (e) {
     return c.json({ error: 'ai_failed', detail: String(e), userMessage: userMsg }, 502);

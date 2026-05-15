@@ -118,6 +118,19 @@ export function ProfileDetail() {
         </Link>
       </div>
 
+      <Link to={`/profiles/${pid}/textbooks`} className="block mb-4">
+        <Box variant="soft" className="p-3 flex items-center gap-3 hover:bg-chip-cream">
+          <span className="text-xl">📚</span>
+          <div className="flex-1">
+            <div className="font-cn font-bold text-sm">教材库</div>
+            <div className="font-cn text-xs text-ink-2">
+              上传 PDF 教材，AI 答题/出题时自动引用章节
+            </div>
+          </div>
+          <span className="font-handBold text-base">›</span>
+        </Box>
+      </Link>
+
       <div className="flex items-center justify-between mb-2">
         <h2 className="font-display text-xl">最近的题</h2>
         <Link to={`/profiles/${pid}/library`} className="font-cn text-xs underline">

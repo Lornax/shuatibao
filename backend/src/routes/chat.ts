@@ -4,6 +4,7 @@ import { asc, eq } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
 import { chatAboutQuestion, type ChatHistoryMessage, type QuestionContext } from '../ai/client.js';
+import { formatChunksForPrompt, retrieveRelevantChunks } from '../lib/textbook-rag.js';
 
 const router = new Hono<{ Variables: AuthVars }>();
 
@@ -73,19 +74,29 @@ router.post('/questions/:qid/chat', async (c) => {
     })
     .returning();
 
-  // 2) call AI with full context
+  // 2) call AI with full context (+ optional textbook RAG)
   const ctx: QuestionContext = {
     stem: q.stem,
     options: q.options,
     answer: q.answer,
     explanation: q.explanation,
   };
+  let textbookReference: string | undefined;
+  try {
+    // 题干 + 用户问题一起做 query，提高检索 recall
+    const ragQuery = `${q.stem}\n${parsed.data.content}`;
+    const chunks = await retrieveRelevantChunks(q.profileId, ragQuery, 3);
+    if (chunks.length > 0) textbookReference = formatChunksForPrompt(chunks);
+  } catch (e) {
+    console.error('[chat] RAG retrieval failed (continuing):', e);
+  }
   let aiReply: string;
   try {
     aiReply = await chatAboutQuestion(
       ctx,
       history as ChatHistoryMessage[],
       parsed.data.content.trim(),
+      textbookReference,
     );
   } catch (e) {
     return c.json({ error: 'ai_failed', detail: String(e), userMessage: userMsg }, 502);

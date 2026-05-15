@@ -45,6 +45,7 @@ export async function generateQuestionFromPrompt(
   difficulty = 2,
   chapter?: string,
   topics?: string,
+  textbookReference?: string,
 ): Promise<CandidateQuestion> {
   const userMsg = [
     `知识点：${knowledge}`,
@@ -52,10 +53,13 @@ export async function generateQuestionFromPrompt(
     topics ? `考点关键词：${topics}` : '',
     `难度：${difficulty}`,
   ].filter(Boolean).join('\n');
+  const systemPrompt = textbookReference
+    ? `${PROMPT_GEN_PROMPT}\n\n${textbookReference}`
+    : PROMPT_GEN_PROMPT;
   const r = await client.chat.completions.create({
     model: MODEL_TEXT,
     messages: [
-      { role: 'system', content: PROMPT_GEN_PROMPT },
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: userMsg },
     ],
     temperature: 0.7,
@@ -150,13 +154,15 @@ export async function chatAboutQuestion(
   question: QuestionContext,
   history: ChatHistoryMessage[],
   newUserMessage: string,
+  textbookReference?: string,
 ): Promise<string> {
   const optionsStr = question.options.map((o) => `${o.key}. ${o.text}`).join('\n');
-  const systemPrompt = CHAT_SYSTEM_PROMPT_TEMPLATE
+  let systemPrompt = CHAT_SYSTEM_PROMPT_TEMPLATE
     .replace('{stem}', question.stem)
     .replace('{options}', optionsStr)
     .replace('{answer}', question.answer || '（未标注）')
     .replace('{explanation}', question.explanation || '（无）');
+  if (textbookReference) systemPrompt += `\n\n${textbookReference}`;
 
   const r = await client.chat.completions.create({
     model: MODEL_CHAT,
@@ -239,8 +245,10 @@ export async function chatStudy(
   stats: StudyStatsContext,
   history: ChatHistoryMessage[],
   newUserMessage: string,
+  textbookReference?: string,
 ): Promise<string> {
-  const systemPrompt = buildStudySystemPrompt(profile, stats);
+  let systemPrompt = buildStudySystemPrompt(profile, stats);
+  if (textbookReference) systemPrompt += `\n\n${textbookReference}`;
   const r = await client.chat.completions.create({
     model: MODEL_CHAT,
     messages: [
