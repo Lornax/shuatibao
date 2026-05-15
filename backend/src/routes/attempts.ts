@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { and, eq, sql } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
+import { getStudyStats } from '../lib/study-stats.js';
 
 const router = new Hono<{ Variables: AuthVars }>();
 
@@ -271,6 +272,19 @@ router.get('/profiles/:pid/quiz/next', async (c) => {
   const rows = Array.isArray(result) ? result : (result as any).rows ?? [];
   if (rows.length === 0) return c.json({ done: true });
   return c.json(rows[0]);
+});
+
+router.get('/profiles/:pid/stats', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  const [profile] = await db
+    .select()
+    .from(schema.profiles)
+    .where(eq(schema.profiles.id, pid))
+    .limit(1);
+  if (!profile || profile.userId !== userId) return c.json({ error: 'not_found' }, 404);
+  const stats = await getStudyStats(pid, userId, profile.examDate);
+  return c.json(stats);
 });
 
 export { router as attemptsRouter };

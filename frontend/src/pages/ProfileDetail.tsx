@@ -4,6 +4,44 @@ import { api, type ImportJobSummary, type Profile, type Question } from '../api/
 import { Box } from '../components/Box';
 import { Layout } from '../components/Layout';
 
+type StudyStats = {
+  totalQuestions: number;
+  wrongbookCount: number;
+  attemptsLast7Days: number;
+  daysSinceLastAttempt: number | null;
+  daysUntilExam: number | null;
+};
+
+type Nudge = { tone: 'red' | 'yellow' | 'cream'; text: string } | null;
+
+function computeNudge(stats: StudyStats | null): Nudge {
+  if (!stats) return null;
+  const { wrongbookCount, daysSinceLastAttempt, daysUntilExam } = stats;
+  // 优先级从高到低，只显示一条
+  if (daysUntilExam != null && daysUntilExam >= 0 && daysUntilExam <= 7 && wrongbookCount >= 10) {
+    return {
+      tone: 'red',
+      text: `⏰ 距考试还剩 ${daysUntilExam} 天，错题本还堆着 ${wrongbookCount} 道，去陪学聊聊冲刺策略 →`,
+    };
+  }
+  if (daysSinceLastAttempt != null && daysSinceLastAttempt >= 2) {
+    return {
+      tone: 'red',
+      text: `🚨 已经 ${daysSinceLastAttempt} 天没刷题了，AI 陪你聊聊 →`,
+    };
+  }
+  if (wrongbookCount >= 20) {
+    return {
+      tone: 'yellow',
+      text: `📚 错题本积压 ${wrongbookCount} 道，建议先清这个再加新题 →`,
+    };
+  }
+  if (daysSinceLastAttempt != null && daysSinceLastAttempt >= 1) {
+    return { tone: 'yellow', text: '💪 今天还没开张，要不要先从错题本来 10 道 →' };
+  }
+  return null;
+}
+
 export function ProfileDetail() {
   const { pid } = useParams<{ pid: string }>();
   const nav = useNavigate();
@@ -11,10 +49,11 @@ export function ProfileDetail() {
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [questionsTotal, setQuestionsTotal] = useState<number | null>(null);
   const [inflightJobs, setInflightJobs] = useState<ImportJobSummary[] | null>(null);
+  const [stats, setStats] = useState<StudyStats | null>(null);
 
   useEffect(() => {
     if (!pid) return;
-    // 三条并行，谁先到先 setState（progressive rendering）— 避免整页等 Promise.all
+    // 四条并行，谁先到先 setState（progressive rendering）— 避免整页等 Promise.all
     api.getProfile(pid).then(setProfile).catch(() => setProfile(null));
     api
       .listQuestionsPaged(pid, { limit: 4 })
@@ -39,12 +78,32 @@ export function ProfileDetail() {
         ),
       )
       .catch(() => setInflightJobs([]));
+    api.getProfileStats(pid).then(setStats).catch(() => setStats(null));
   }, [pid]);
+
+  const nudge = computeNudge(stats);
 
   const title = profile ? profile.examName : '加载中';
 
   return (
     <Layout title={title} back={() => nav('/profiles')}>
+      {nudge && (
+        <Link to={`/profiles/${pid}/study-chat`} className="block mb-3">
+          <Box
+            variant="thick"
+            className={`p-3 ${
+              nudge.tone === 'red'
+                ? 'bg-chip-pink'
+                : nudge.tone === 'yellow'
+                  ? 'bg-chip-cream'
+                  : 'bg-chip-cream'
+            }`}
+          >
+            <p className="font-cn text-sm leading-relaxed">{nudge.text}</p>
+          </Box>
+        </Link>
+      )}
+
       {inflightJobs && inflightJobs.length > 0 && (
         <div className="mb-3 space-y-2">
           {inflightJobs.map((j) => {

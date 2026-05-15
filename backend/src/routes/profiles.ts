@@ -60,6 +60,7 @@ const patchSchema = z.object({
   target: z.string().max(200).nullable().optional(),
   examDate: z.string().datetime().nullable().optional(),
   dailyMinutes: z.number().int().min(5).max(720).optional(),
+  status: z.enum(['active', 'archived', 'given_up']).optional(),
 });
 
 router.patch('/:id', async (c) => {
@@ -84,6 +85,11 @@ router.patch('/:id', async (c) => {
     patch.examDate = parsed.data.examDate ? new Date(parsed.data.examDate) : null;
   }
   if (parsed.data.dailyMinutes !== undefined) patch.dailyMinutes = parsed.data.dailyMinutes;
+  if (parsed.data.status !== undefined) {
+    patch.status = parsed.data.status;
+    // 归档/放弃时记录时间；恢复 active 时清零
+    patch.archivedAt = parsed.data.status === 'active' ? null : new Date();
+  }
 
   if (Object.keys(patch).length === 0) {
     return c.json(existing);

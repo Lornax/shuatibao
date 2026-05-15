@@ -140,9 +140,25 @@ export const api = {
   getProfile: (id: string) => request<Profile>(`/profiles/${id}`),
   patchProfile: (
     id: string,
-    input: Partial<{ examName: string; target: string | null; examDate: string | null; dailyMinutes: number }>,
+    input: Partial<{
+      examName: string;
+      target: string | null;
+      examDate: string | null;
+      dailyMinutes: number;
+      status: 'active' | 'archived' | 'given_up';
+    }>,
   ) => request<Profile>(`/profiles/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
   deleteProfile: (id: string) => request<{ ok: true }>(`/profiles/${id}`, { method: 'DELETE' }),
+
+  getProfileStats: (pid: string) =>
+    request<{
+      totalQuestions: number;
+      wrongbookCount: number;
+      attemptsLast7Days: number;
+      recentAttemptDates: string[];
+      daysSinceLastAttempt: number | null;
+      daysUntilExam: number | null;
+    }>(`/profiles/${pid}/stats`),
   getQuestion: (id: string) => request<Question>(`/questions/${id}`),
 
   listQuestions: (pid: string) => request<Question[]>(`/profiles/${pid}/questions`),

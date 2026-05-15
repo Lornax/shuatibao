@@ -194,8 +194,19 @@ export type StudyStatsContext = {
 };
 
 function buildStudySystemPrompt(profile: ProfileContext, stats: StudyStatsContext): string {
+  const now = new Date();
+  const cnDate = now.toLocaleDateString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  });
   const lines = [
-    `你是 ${profile.examName} 备考的 AI 陪学助手。下面是用户最新的学习状态：`,
+    `你是 ${profile.examName} 备考的 AI 陪学助手。`,
+    `今天是 ${cnDate}。`,
+    '',
+    '下面是用户最新的学习状态：',
     `- 考试：${profile.examName}${profile.target ? `（目标：${profile.target}）` : ''}`,
     `- 每天计划：${profile.dailyMinutes} 分钟`,
     stats.daysUntilExam != null
