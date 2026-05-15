@@ -1,10 +1,13 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
 
 const router = new Hono<{ Variables: AuthVars }>();
+
+// 答对多少次后从错题本自动移除。
+const STREAK_MASTER = 3;
 
 const submitSchema = z.object({
   chosen: z.string().min(1).max(20),
@@ -43,6 +46,43 @@ router.post('/questions/:qid/attempts', async (c) => {
     })
     .returning();
 
+  // 错题本 streak 维护：
+  //   答错 → upsert entry (auto, streak=0) — 已存在的也重置 streak
+  //   答对 → 如果 entry 存在，streak++；达到 STREAK_MASTER 则移除
+  if (!isCorrect) {
+    await db
+      .insert(schema.wrongbookEntries)
+      .values({ questionId: qid, userId, source: 'auto', correctStreak: 0 })
+      .onConflictDoUpdate({
+        target: [schema.wrongbookEntries.questionId, schema.wrongbookEntries.userId],
+        set: { correctStreak: 0 },
+      });
+  } else {
+    const [existing] = await db
+      .select()
+      .from(schema.wrongbookEntries)
+      .where(
+        and(
+          eq(schema.wrongbookEntries.questionId, qid),
+          eq(schema.wrongbookEntries.userId, userId),
+        ),
+      )
+      .limit(1);
+    if (existing) {
+      const next = existing.correctStreak + 1;
+      if (next >= STREAK_MASTER) {
+        await db
+          .delete(schema.wrongbookEntries)
+          .where(eq(schema.wrongbookEntries.id, existing.id));
+      } else {
+        await db
+          .update(schema.wrongbookEntries)
+          .set({ correctStreak: next })
+          .where(eq(schema.wrongbookEntries.id, existing.id));
+      }
+    }
+  }
+
   return c.json({
     attempt: row,
     correctAnswer: q.q.answer,
@@ -61,44 +101,132 @@ router.get('/profiles/:pid/wrongbook', async (c) => {
     .limit(1);
   if (!profile || profile.userId !== userId) return c.json({ error: 'not_found' }, 404);
 
-  // 拿这个档案下、当前用户最近一次作答错误的题
+  // 错题本 = wrongbook_entries 表中该 user + 该 profile 的题
+  // 附带最近一次 attempt 的 chosen / attempted_at（可能没有，比如手动加入但还没答过）
   const result = await db.execute<{
     id: string;
     stem: string;
     options: { key: string; text: string }[];
     answer: string;
     explanation: string | null;
-    last_chosen: string;
-    last_attempted_at: Date;
+    source: 'auto' | 'manual';
+    correct_streak: number;
+    added_at: Date;
+    last_chosen: string | null;
+    last_attempted_at: Date | null;
     wrong_count: number;
   }>(sql`
     SELECT
       q.id, q.stem, q.options, q.answer, q.explanation,
+      we.source, we.correct_streak, we.added_at,
       latest.chosen as last_chosen,
       latest.attempted_at as last_attempted_at,
-      cnt.wrong_count
-    FROM questions q
-    JOIN LATERAL (
-      SELECT chosen, is_correct, attempted_at
+      COALESCE(cnt.wrong_count, 0) as wrong_count
+    FROM wrongbook_entries we
+    JOIN questions q ON q.id = we.question_id
+    LEFT JOIN LATERAL (
+      SELECT chosen, attempted_at
       FROM attempts
       WHERE question_id = q.id AND user_id = ${userId}
       ORDER BY attempted_at DESC
       LIMIT 1
     ) latest ON TRUE
-    JOIN LATERAL (
+    LEFT JOIN LATERAL (
       SELECT COUNT(*)::int as wrong_count
       FROM attempts
       WHERE question_id = q.id AND user_id = ${userId} AND is_correct = false
     ) cnt ON TRUE
-    WHERE q.profile_id = ${pid}
-      AND latest.is_correct = false
-    ORDER BY latest.attempted_at DESC
+    WHERE q.profile_id = ${pid} AND we.user_id = ${userId}
+    ORDER BY we.added_at DESC
   `);
 
-  // postgres-js driver returns RowList directly (extends Array). Drizzle 0.36+ wraps it.
-  // We rely on the result being array-like; if Drizzle wraps in {rows: [...]}, normalize.
   const rows = Array.isArray(result) ? result : (result as any).rows ?? [];
   return c.json(rows);
+});
+
+// 手动加入错题本（蒙对的、印象深的题）
+router.post('/questions/:qid/wrongbook', async (c) => {
+  const userId = c.get('userId');
+  const qid = c.req.param('qid');
+  const [q] = await db
+    .select({ q: schema.questions, p: schema.profiles })
+    .from(schema.questions)
+    .innerJoin(schema.profiles, eq(schema.questions.profileId, schema.profiles.id))
+    .where(eq(schema.questions.id, qid))
+    .limit(1);
+  if (!q || q.p.userId !== userId) return c.json({ error: 'not_found' }, 404);
+
+  const [row] = await db
+    .insert(schema.wrongbookEntries)
+    .values({ questionId: qid, userId, source: 'manual', correctStreak: 0 })
+    .onConflictDoNothing({
+      target: [schema.wrongbookEntries.questionId, schema.wrongbookEntries.userId],
+    })
+    .returning();
+
+  // 已经在错题本里：返回现有 entry
+  if (!row) {
+    const [existing] = await db
+      .select()
+      .from(schema.wrongbookEntries)
+      .where(
+        and(
+          eq(schema.wrongbookEntries.questionId, qid),
+          eq(schema.wrongbookEntries.userId, userId),
+        ),
+      )
+      .limit(1);
+    return c.json({ entry: existing, alreadyIn: true });
+  }
+  return c.json({ entry: row, alreadyIn: false });
+});
+
+// 手动移除错题本
+router.delete('/questions/:qid/wrongbook', async (c) => {
+  const userId = c.get('userId');
+  const qid = c.req.param('qid');
+  const [q] = await db
+    .select({ q: schema.questions, p: schema.profiles })
+    .from(schema.questions)
+    .innerJoin(schema.profiles, eq(schema.questions.profileId, schema.profiles.id))
+    .where(eq(schema.questions.id, qid))
+    .limit(1);
+  if (!q || q.p.userId !== userId) return c.json({ error: 'not_found' }, 404);
+
+  await db
+    .delete(schema.wrongbookEntries)
+    .where(
+      and(
+        eq(schema.wrongbookEntries.questionId, qid),
+        eq(schema.wrongbookEntries.userId, userId),
+      ),
+    );
+  return c.json({ ok: true });
+});
+
+// 查这道题是不是在错题本里（前端 Quiz revealed 用，决定按钮文案）
+router.get('/questions/:qid/wrongbook', async (c) => {
+  const userId = c.get('userId');
+  const qid = c.req.param('qid');
+  const [q] = await db
+    .select({ q: schema.questions, p: schema.profiles })
+    .from(schema.questions)
+    .innerJoin(schema.profiles, eq(schema.questions.profileId, schema.profiles.id))
+    .where(eq(schema.questions.id, qid))
+    .limit(1);
+  if (!q || q.p.userId !== userId) return c.json({ error: 'not_found' }, 404);
+
+  const [entry] = await db
+    .select()
+    .from(schema.wrongbookEntries)
+    .where(
+      and(
+        eq(schema.wrongbookEntries.questionId, qid),
+        eq(schema.wrongbookEntries.userId, userId),
+      ),
+    )
+    .limit(1);
+  return c.json({ entry: entry ?? null });
 });
 
 router.get('/profiles/:pid/quiz/next', async (c) => {

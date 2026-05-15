@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, jsonb, integer, boolean, pgEnum, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, jsonb, integer, boolean, pgEnum, index, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const profileStatus = pgEnum('profile_status', ['active', 'archived', 'given_up']);
 export const questionSource = pgEnum('question_source', ['photo', 'manual', 'pdf', 'ai_gen']);
@@ -9,6 +9,7 @@ export const importJobStatus = pgEnum('import_job_status', [
   'failed',
 ]);
 export const chatRole = pgEnum('chat_role', ['user', 'assistant']);
+export const wrongbookSource = pgEnum('wrongbook_source', ['auto', 'manual']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -89,4 +90,15 @@ export const chatMessages = pgTable('chat_messages', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   questionIdx: index('chat_messages_question_idx').on(t.questionId, t.createdAt),
+}));
+
+export const wrongbookEntries = pgTable('wrongbook_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  questionId: uuid('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  source: wrongbookSource('source').notNull(),
+  correctStreak: integer('correct_streak').default(0).notNull(),
+  addedAt: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uniq: uniqueIndex('wrongbook_entries_uniq_idx').on(t.questionId, t.userId),
 }));

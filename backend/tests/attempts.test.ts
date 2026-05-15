@@ -85,7 +85,7 @@ describe('GET /api/profiles/:pid/wrongbook', () => {
     expect(body[0].wrong_count).toBe(1);
   });
 
-  it('excludes question once correctly answered after wrong', async () => {
+  it('keeps question in wrongbook after 1 wrong + 1 correct (streak=1)', async () => {
     await app.request(`/api/questions/${qid}/attempts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -98,7 +98,112 @@ describe('GET /api/profiles/:pid/wrongbook', () => {
     });
     const res = await app.request(`/api/profiles/${pid}/wrongbook`, { headers: authHeaders() });
     const body = await res.json();
-    expect(body).toHaveLength(0);
+    expect(body).toHaveLength(1);
+    expect(body[0].correct_streak).toBe(1);
+    expect(body[0].source).toBe('auto');
+  });
+
+  it('removes question after 3 consecutive correct answers (mastered)', async () => {
+    // 1 错 → 加入错题本
+    await app.request(`/api/questions/${qid}/attempts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ chosen: 'A' }),
+    });
+    // 3 对 → 自动移除
+    for (let i = 0; i < 3; i++) {
+      await app.request(`/api/questions/${qid}/attempts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ chosen: 'B' }),
+      });
+    }
+    const res = await app.request(`/api/profiles/${pid}/wrongbook`, { headers: authHeaders() });
+    expect(await res.json()).toHaveLength(0);
+  });
+
+  it('resets streak when answered wrong again', async () => {
+    // 1 错 + 2 对 → streak=2
+    await app.request(`/api/questions/${qid}/attempts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ chosen: 'A' }),
+    });
+    await app.request(`/api/questions/${qid}/attempts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ chosen: 'B' }),
+    });
+    await app.request(`/api/questions/${qid}/attempts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ chosen: 'B' }),
+    });
+    // 再 1 错 → streak 重置为 0
+    await app.request(`/api/questions/${qid}/attempts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ chosen: 'A' }),
+    });
+    const res = await app.request(`/api/profiles/${pid}/wrongbook`, { headers: authHeaders() });
+    const body = await res.json();
+    expect(body).toHaveLength(1);
+    expect(body[0].correct_streak).toBe(0);
+  });
+});
+
+describe('POST/DELETE /api/questions/:qid/wrongbook (manual)', () => {
+  it('manually adds a question with source=manual', async () => {
+    const res = await app.request(`/api/questions/${qid}/wrongbook`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.entry.source).toBe('manual');
+    expect(body.alreadyIn).toBe(false);
+
+    // POST 第二次：alreadyIn=true，不报错
+    const second = await app.request(`/api/questions/${qid}/wrongbook`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    expect(second.status).toBe(200);
+    expect((await second.json()).alreadyIn).toBe(true);
+
+    // wrongbook 列表应该有这道题
+    const list = await app.request(`/api/profiles/${pid}/wrongbook`, { headers: authHeaders() });
+    const items = await list.json();
+    expect(items).toHaveLength(1);
+    expect(items[0].source).toBe('manual');
+  });
+
+  it('manually removes a question', async () => {
+    await app.request(`/api/questions/${qid}/wrongbook`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const del = await app.request(`/api/questions/${qid}/wrongbook`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    expect(del.status).toBe(200);
+    const list = await app.request(`/api/profiles/${pid}/wrongbook`, { headers: authHeaders() });
+    expect(await list.json()).toHaveLength(0);
+  });
+
+  it('GET /questions/:qid/wrongbook tells whether the question is in', async () => {
+    const before = await app.request(`/api/questions/${qid}/wrongbook`, { headers: authHeaders() });
+    expect((await before.json()).entry).toBeNull();
+
+    await app.request(`/api/questions/${qid}/wrongbook`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const after = await app.request(`/api/questions/${qid}/wrongbook`, { headers: authHeaders() });
+    const body = await after.json();
+    expect(body.entry).not.toBeNull();
+    expect(body.entry.source).toBe('manual');
   });
 });
 

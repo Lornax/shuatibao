@@ -99,9 +99,21 @@ export type WrongItem = {
   options: { key: string; text: string }[];
   answer: string;
   explanation: string | null;
-  last_chosen: string;
-  last_attempted_at: string;
+  source: 'auto' | 'manual';
+  correct_streak: number;
+  added_at: string;
+  last_chosen: string | null;
+  last_attempted_at: string | null;
   wrong_count: number;
+};
+
+export type WrongbookEntry = {
+  id: string;
+  questionId: string;
+  userId: string;
+  source: 'auto' | 'manual';
+  correctStreak: number;
+  addedAt: string;
 };
 
 export const api = {
@@ -247,6 +259,18 @@ export const api = {
     }>(`/questions/${qid}/attempts`, { method: 'POST', body: JSON.stringify(input) }),
 
   wrongbook: (pid: string) => request<WrongItem[]>(`/profiles/${pid}/wrongbook`),
+
+  getWrongbookEntry: (qid: string) =>
+    request<{ entry: WrongbookEntry | null }>(`/questions/${qid}/wrongbook`),
+
+  addToWrongbook: (qid: string) =>
+    request<{ entry: WrongbookEntry; alreadyIn: boolean }>(
+      `/questions/${qid}/wrongbook`,
+      { method: 'POST' },
+    ),
+
+  removeFromWrongbook: (qid: string) =>
+    request<{ ok: true }>(`/questions/${qid}/wrongbook`, { method: 'DELETE' }),
 
   deleteQuestion: (id: string) => request<{ ok: true }>(`/questions/${id}`, { method: 'DELETE' }),
 

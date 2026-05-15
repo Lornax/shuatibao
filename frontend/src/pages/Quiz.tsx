@@ -385,10 +385,108 @@ function RevealedView({
         )}
       </Box>
 
+      <WrongbookToggle questionId={record.q.id} />
+
       <ChatPanel questionId={record.q.id} />
 
       {children}
     </div>
+  );
+}
+
+const STREAK_MASTER = 3;
+
+function WrongbookToggle({ questionId }: { questionId: string }) {
+  const [entry, setEntry] = useState<
+    null | { id: string; source: 'auto' | 'manual'; correctStreak: number }
+  >(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await api.getWrongbookEntry(questionId);
+      setEntry(r.entry);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questionId]);
+
+  async function add() {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.addToWrongbook(questionId);
+      setEntry(r.entry);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm('从错题本里移除这道题？')) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.removeFromWrongbook(questionId);
+      setEntry(null);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Box variant="dashed" className="p-2">
+        <p className="font-cn text-xs text-ink-3">错题本状态加载中...</p>
+      </Box>
+    );
+  }
+
+  if (!entry) {
+    return (
+      <Box variant="dashed" className="p-2">
+        <div className="flex items-center gap-2 justify-between">
+          <p className="font-cn text-xs text-ink-2">
+            想再刷一遍？把这道加入错题本。
+          </p>
+          <Button variant="ghost" onClick={add} disabled={busy} className="text-xs shrink-0">
+            ⭐ {busy ? '...' : '加入错题本'}
+          </Button>
+        </div>
+      </Box>
+    );
+  }
+
+  return (
+    <Box variant="soft" className="p-2 bg-chip-cream">
+      <div className="flex items-center gap-2 justify-between">
+        <div className="flex-1 min-w-0">
+          <p className="font-cn text-xs font-bold">✓ 已在错题本</p>
+          <p className="font-cn text-[11px] text-ink-3">
+            来源：{entry.source === 'manual' ? '主动加入' : '答错自动加入'} · 答对{' '}
+            {entry.correctStreak} / {STREAK_MASTER} 后移除
+          </p>
+        </div>
+        <Button variant="ghost" onClick={remove} disabled={busy} className="text-xs shrink-0">
+          ✕ {busy ? '...' : '移除'}
+        </Button>
+      </div>
+      {error && <p className="font-cn text-xs text-accent mt-1">{error}</p>}
+    </Box>
   );
 }
 

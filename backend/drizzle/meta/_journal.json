@@ -29,6 +29,13 @@
       "when": 1778820570748,
       "tag": "0003_chat_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778822727014,
+      "tag": "0004_wrongbook_entries",
+      "breakpoints": true
     }
   ]
 }
