@@ -69,9 +69,15 @@ export function TextbookList() {
   return (
     <Layout title="教材库" back={() => nav(`/profiles/${pid}`)}>
       <div className="space-y-3">
-        <Box variant="dashed" className="p-2 bg-chip-cream">
-          <p className="font-cn text-xs text-ink-2">
-            上传 PDF 教材，AI 陪学/题目问答/出题时会自动引用对应章节，给出更精准的答复。最大 50MB，几百页的书需要几分钟处理。
+        <Box variant="dashed" className="p-3 bg-chip-cream">
+          <p className="font-cn text-sm font-bold mb-1">📚 教材决定 AI 的精准度</p>
+          <p className="font-cn text-xs text-ink-2 leading-relaxed">
+            <span className="text-ink">没导入教材</span>：AI 答题、解析、出题都靠通用知识回答，章节 / 页码可能不准，甚至会编造。
+            <br />
+            <span className="text-ink">导入教材后</span>：AI 优先引用教材原文，解析末尾标注 <span className="font-handBold">[第 X 章·第 Y 页]</span>，让你能直接翻书核对。
+          </p>
+          <p className="font-cn text-[11px] text-ink-3 mt-2">
+            上传 PDF（≤50MB），几百页的教材需要几分钟解析 + 嵌入。
           </p>
         </Box>
 

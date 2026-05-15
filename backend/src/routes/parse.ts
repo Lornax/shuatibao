@@ -71,6 +71,17 @@ router.post('/profiles/:pid/parse/prompt', async (c) => {
       .filter(Boolean)
       .join(' ');
     const chunks = await retrieveRelevantChunks(pid, ragQuery, 3);
+    console.log(
+      `[parse/prompt] RAG: query="${ragQuery}" retrieved ${chunks.length} chunks${
+        chunks.length > 0
+          ? ' (' +
+            chunks
+              .map((c) => `${c.chapter ?? '?'}@${c.pageStart ?? '?'}·sim=${c.similarity.toFixed(2)}`)
+              .join(', ') +
+            ')'
+          : ''
+      }`,
+    );
     if (chunks.length > 0) textbookReference = formatChunksForPrompt(chunks);
   } catch (e) {
     console.error('[parse/prompt] RAG retrieval failed (continuing):', e);
