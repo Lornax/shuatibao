@@ -102,6 +102,12 @@ export const api = {
   createProfile: (input: { examName: string; target?: string; examDate?: string; dailyMinutes?: number }) =>
     request<Profile>('/profiles', { method: 'POST', body: JSON.stringify(input) }),
   getProfile: (id: string) => request<Profile>(`/profiles/${id}`),
+  patchProfile: (
+    id: string,
+    input: Partial<{ examName: string; target: string | null; examDate: string | null; dailyMinutes: number }>,
+  ) => request<Profile>(`/profiles/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  deleteProfile: (id: string) => request<{ ok: true }>(`/profiles/${id}`, { method: 'DELETE' }),
+  getQuestion: (id: string) => request<Question>(`/questions/${id}`),
 
   listQuestions: (pid: string) => request<Question[]>(`/profiles/${pid}/questions`),
 

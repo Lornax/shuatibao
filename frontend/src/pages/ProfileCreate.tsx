@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
@@ -14,14 +14,33 @@ const dailyChips: { label: string; minutes: number }[] = [
   { label: '>3 小时', minutes: 180 },
 ];
 
+// Same component handles both create (no :pid in URL) and edit (/profiles/:pid/edit).
 export function ProfileCreate() {
   const nav = useNavigate();
+  const { pid } = useParams<{ pid?: string }>();
+  const isEdit = !!pid;
+
   const [examName, setExamName] = useState('NPDP');
   const [target, setTarget] = useState('');
   const [examDate, setExamDate] = useState('');
   const [dailyMinutes, setDailyMinutes] = useState(60);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isEdit || !pid) return;
+    api
+      .getProfile(pid)
+      .then((p) => {
+        setExamName(p.examName);
+        setTarget(p.target ?? '');
+        setExamDate(p.examDate ? p.examDate.slice(0, 10) : '');
+        setDailyMinutes(p.dailyMinutes);
+      })
+      .catch((e) => setError(String(e)))
+      .finally(() => setLoading(false));
+  }, [pid, isEdit]);
 
   async function submit() {
     if (!examName.trim()) {
@@ -31,21 +50,39 @@ export function ProfileCreate() {
     setSubmitting(true);
     setError(null);
     try {
-      const created = await api.createProfile({
-        examName: examName.trim(),
-        target: target.trim() || undefined,
-        examDate: examDate ? new Date(examDate).toISOString() : undefined,
-        dailyMinutes,
-      });
-      nav(`/profiles/${created.id}`, { replace: true });
+      if (isEdit && pid) {
+        await api.patchProfile(pid, {
+          examName: examName.trim(),
+          target: target.trim() || null,
+          examDate: examDate ? new Date(examDate).toISOString() : null,
+          dailyMinutes,
+        });
+        nav(`/profiles/${pid}`, { replace: true });
+      } else {
+        const created = await api.createProfile({
+          examName: examName.trim(),
+          target: target.trim() || undefined,
+          examDate: examDate ? new Date(examDate).toISOString() : undefined,
+          dailyMinutes,
+        });
+        nav(`/profiles/${created.id}`, { replace: true });
+      }
     } catch (e) {
       setError(String(e));
       setSubmitting(false);
     }
   }
 
+  if (loading) {
+    return (
+      <Layout title="加载中" back={() => nav(-1)}>
+        <p className="font-cn text-sm text-ink-2">加载档案...</p>
+      </Layout>
+    );
+  }
+
   return (
-    <Layout title="新建档案" back={() => nav(-1)}>
+    <Layout title={isEdit ? '编辑档案' : '新建档案'} back={() => nav(-1)}>
       <div className="space-y-3">
         <div>
           <label className="font-cn font-bold text-sm block mb-1">考试名称</label>
@@ -84,7 +121,7 @@ export function ProfileCreate() {
             取消
           </Button>
           <Button variant="primary" onClick={submit} disabled={submitting} className="flex-[1.4] justify-center">
-            {submitting ? '建档中...' : '建档 ✓'}
+            {submitting ? (isEdit ? '保存中...' : '建档中...') : isEdit ? '保存 ✓' : '建档 ✓'}
           </Button>
         </div>
       </div>

@@ -29,8 +29,9 @@ type Live =
 export function Quiz() {
   const { pid } = useParams<{ pid: string }>();
   const nav = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const wrongOnly = searchParams.get('mode') === 'wrong';
+  const startWith = searchParams.get('startWith');
   const [history, setHistory] = useState<AnsweredRecord[]>([]);
   const [live, setLive] = useState<Live>({ kind: 'loading' });
   const [viewing, setViewing] = useState<number | 'live'>('live');
@@ -63,6 +64,16 @@ export function Quiz() {
     setLive({ kind: 'loading' });
     setViewing('live');
     try {
+      // 如果是从 ProfileDetail 点击具体题目进来，第一题用指定题；之后正常 nextQuiz 接管
+      if (startWith) {
+        const q = await api.getQuestion(startWith);
+        // consume the param so后续"下一题"走 nextQuiz
+        const next = new URLSearchParams(searchParams);
+        next.delete('startWith');
+        setSearchParams(next, { replace: true });
+        setLive({ kind: 'asking', q: q as Question, startAt: Date.now(), chosen: null });
+        return;
+      }
       const next = await api.nextQuiz(pid, { wrongOnly });
       if ('done' in next && next.done) {
         setLive({ kind: 'done' });

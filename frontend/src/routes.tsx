@@ -18,6 +18,7 @@ export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/profiles" replace /> },
   { path: '/profiles', element: <ProfileList /> },
   { path: '/profiles/new', element: <ProfileCreate /> },
+  { path: '/profiles/:pid/edit', element: <ProfileCreate /> },
   { path: '/profiles/:pid', element: <ProfileDetail /> },
   { path: '/profiles/:pid/questions/new', element: <QuestionAdd /> },
   { path: '/profiles/:pid/quiz', element: <Quiz /> },

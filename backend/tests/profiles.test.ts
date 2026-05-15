@@ -76,3 +76,77 @@ describe('GET /api/profiles/:id', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('PATCH /api/profiles/:id', () => {
+  it('updates examName + target + dailyMinutes', async () => {
+    const createRes = await app.request('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ examName: 'NPDP' }),
+    });
+    const created = await createRes.json();
+
+    const res = await app.request(`/api/profiles/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ examName: 'NPDP 2.0', target: '70 分', dailyMinutes: 90 }),
+    });
+    expect(res.status).toBe(200);
+    const updated = await res.json();
+    expect(updated.examName).toBe('NPDP 2.0');
+    expect(updated.target).toBe('70 分');
+    expect(updated.dailyMinutes).toBe(90);
+  });
+
+  it('returns 404 for unknown id', async () => {
+    const res = await app.request('/api/profiles/00000000-0000-0000-0000-000000000000', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ examName: 'x' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('rejects invalid body', async () => {
+    const createRes = await app.request('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ examName: 'X' }),
+    });
+    const { id } = await createRes.json();
+    const res = await app.request(`/api/profiles/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ dailyMinutes: 9999 }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('DELETE /api/profiles/:id', () => {
+  it('deletes the profile and cascades', async () => {
+    const createRes = await app.request('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ examName: 'X' }),
+    });
+    const { id } = await createRes.json();
+    const res = await app.request(`/api/profiles/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    const after = await app.request(`/api/profiles/${id}`, { headers: authHeaders() });
+    expect(after.status).toBe(404);
+  });
+
+  it('returns 404 for unknown id', async () => {
+    const res = await app.request('/api/profiles/00000000-0000-0000-0000-000000000000', {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(404);
+  });
+});

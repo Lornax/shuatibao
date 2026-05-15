@@ -17,7 +17,7 @@ export function ProfileDetail() {
     // 三条并行，谁先到先 setState（progressive rendering）— 避免整页等 Promise.all
     api.getProfile(pid).then(setProfile).catch(() => setProfile(null));
     api
-      .listQuestionsPaged(pid, { limit: 8 })
+      .listQuestionsPaged(pid, { limit: 4 })
       .then((r) => {
         setQuestions(r.rows);
         setQuestionsTotal(r.total);
@@ -126,17 +126,36 @@ export function ProfileDetail() {
           <p className="font-cn text-sm text-ink-2">还没有题，先加几道再来</p>
         </Box>
       ) : (
-        <div className="space-y-2">
-          {questions.map((q) => (
-            <Box key={q.id} variant="soft" className="p-3">
-              <p className="font-cn text-sm leading-relaxed line-clamp-2">{q.stem}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="font-cn text-xs text-ink-2">难度 {'★'.repeat(q.difficulty)}</span>
-                <span className="font-cn text-xs text-ink-2">{q.tags.slice(0, 3).join(' · ')}</span>
-              </div>
-            </Box>
-          ))}
-        </div>
+        <>
+          <div className="space-y-2">
+            {questions.map((q) => (
+              <Link
+                key={q.id}
+                to={`/profiles/${pid}/quiz?startWith=${q.id}`}
+                className="block hover:opacity-90"
+              >
+                <Box variant="soft" className="p-3">
+                  <p className="font-cn text-sm leading-relaxed line-clamp-2">{q.stem}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-cn text-xs text-ink-2">难度 {'★'.repeat(q.difficulty)}</span>
+                    <span className="font-cn text-xs text-ink-2">{q.tags.slice(0, 3).join(' · ')}</span>
+                    <span className="font-cn text-[10px] text-ink-3 ml-auto">点击答这道 →</span>
+                  </div>
+                </Box>
+              </Link>
+            ))}
+          </div>
+          {questionsTotal != null && questionsTotal > questions.length && (
+            <p className="text-center mt-3">
+              <Link
+                to={`/profiles/${pid}/library`}
+                className="font-cn text-xs text-ink-2 underline"
+              >
+                共 {questionsTotal} 道 · 进入题库管理查看全部 →
+              </Link>
+            </p>
+          )}
+        </>
       )}
     </Layout>
   );
