@@ -98,10 +98,10 @@ export function ProfileDetail() {
             </div>
           </Box>
         </Link>
-        <Link to={`/profiles/${pid}/quiz`}>
+        <Link to={`/profiles/${pid}/textbooks`}>
           <Box variant="soft" className="p-3 text-center hover:bg-chip-cream">
-            <div className="font-cn font-bold">刷题</div>
-            <div className="font-cn text-xs text-ink-2 mt-1">开始</div>
+            <div className="font-cn font-bold">📚 教材库</div>
+            <div className="font-cn text-xs text-ink-2 mt-1">AI 引用章节</div>
           </Box>
         </Link>
         <Link to={`/profiles/${pid}/wrongbook`}>
@@ -118,24 +118,19 @@ export function ProfileDetail() {
         </Link>
       </div>
 
-      <Link to={`/profiles/${pid}/textbooks`} className="block mb-4">
-        <Box variant="soft" className="p-3 flex items-center gap-3 hover:bg-chip-cream">
-          <span className="text-xl">📚</span>
-          <div className="flex-1">
-            <div className="font-cn font-bold text-sm">教材库</div>
-            <div className="font-cn text-xs text-ink-2">
-              上传 PDF 教材，AI 答题/出题时自动引用章节
-            </div>
-          </div>
-          <span className="font-handBold text-base">›</span>
-        </Box>
-      </Link>
-
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 gap-2">
         <h2 className="font-display text-xl">最近的题</h2>
-        <Link to={`/profiles/${pid}/library`} className="font-cn text-xs underline">
-          管理全部 →
-        </Link>
+        <div className="flex items-center gap-3 shrink-0">
+          <Link
+            to={`/profiles/${pid}/quiz`}
+            className="font-cn text-xs px-2 py-1 rounded-full border-[1.5px] border-ink bg-chip-cream hover:bg-chip-green font-handBold"
+          >
+            开始刷题 →
+          </Link>
+          <Link to={`/profiles/${pid}/library`} className="font-cn text-xs underline">
+            管理全部 →
+          </Link>
+        </div>
       </div>
 
       {questions === null ? (

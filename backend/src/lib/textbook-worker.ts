@@ -4,7 +4,8 @@ import { embed } from '../ai/client.js';
 import { parseTextbook } from './textbook-parser.js';
 
 const bufsByJobId = new Map<string, Buffer>();
-const EMBED_BATCH = 25;
+// dashscope text-embedding-v3 单次 input 数组上限是 10
+const EMBED_BATCH = 10;
 
 export function registerTextbookBuffer(textbookId: string, buf: Buffer) {
   bufsByJobId.set(textbookId, buf);
