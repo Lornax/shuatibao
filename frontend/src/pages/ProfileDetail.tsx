@@ -9,17 +9,15 @@ export function ProfileDetail() {
   const nav = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
-  const [inflightJobs, setInflightJobs] = useState<ImportJobSummary[]>([]);
+  const [inflightJobs, setInflightJobs] = useState<ImportJobSummary[] | null>(null);
 
   useEffect(() => {
     if (!pid) return;
-    Promise.all([api.getProfile(pid), api.listQuestions(pid)]).then(([p, qs]) => {
-      setProfile(p);
-      setQuestions(qs);
-    });
+    // 三条并行，谁先到先 setState（progressive rendering）— 避免整页等 Promise.all
+    api.getProfile(pid).then(setProfile).catch(() => setProfile(null));
+    api.listQuestions(pid).then(setQuestions).catch(() => setQuestions([]));
     api
       .listImportJobs(pid, ['pending', 'running', 'completed', 'failed'])
-      // hide failed+empty rows; show running/pending always; show completed/failed if there are still candidates to review
       .then((r) =>
         setInflightJobs(
           r.jobs.filter(
@@ -33,11 +31,11 @@ export function ProfileDetail() {
       .catch(() => setInflightJobs([]));
   }, [pid]);
 
-  if (!profile || !questions) return <Layout title="加载中" back={() => nav('/profiles')}>...</Layout>;
+  const title = profile ? profile.examName : '加载中';
 
   return (
-    <Layout title={profile.examName} back={() => nav('/profiles')}>
-      {inflightJobs.length > 0 && (
+    <Layout title={title} back={() => nav('/profiles')}>
+      {inflightJobs && inflightJobs.length > 0 && (
         <div className="mb-3 space-y-2">
           {inflightJobs.map((j) => {
             const isRunning = j.status === 'pending' || j.status === 'running';
@@ -68,20 +66,26 @@ export function ProfileDetail() {
         </div>
       )}
 
-      <Box variant="thick" className="p-3 mb-3 bg-chip-cream">
-        <div className="font-cn text-xs text-ink-2">
-          {profile.examDate
-            ? `${new Date(profile.examDate).toLocaleDateString('zh-CN')} · 每天 ${profile.dailyMinutes} 分钟`
-            : `每天 ${profile.dailyMinutes} 分钟（未设考试日期）`}
-        </div>
-        {profile.target && <div className="font-cn text-sm mt-1">{profile.target}</div>}
-      </Box>
+      {profile ? (
+        <Box variant="thick" className="p-3 mb-3 bg-chip-cream">
+          <div className="font-cn text-xs text-ink-2">
+            {profile.examDate
+              ? `${new Date(profile.examDate).toLocaleDateString('zh-CN')} · 每天 ${profile.dailyMinutes} 分钟`
+              : `每天 ${profile.dailyMinutes} 分钟（未设考试日期）`}
+          </div>
+          {profile.target && <div className="font-cn text-sm mt-1">{profile.target}</div>}
+        </Box>
+      ) : (
+        <SkeletonHeader />
+      )}
 
       <div className="grid grid-cols-3 gap-2 mb-4">
         <Link to={`/profiles/${pid}/questions/new`}>
           <Box variant="soft" className="p-3 text-center hover:bg-chip-cream">
             <div className="font-cn font-bold">+ 加题</div>
-            <div className="font-cn text-xs text-ink-2 mt-1">{questions.length} 道</div>
+            <div className="font-cn text-xs text-ink-2 mt-1">
+              {questions ? `${questions.length} 道` : <SkeletonInline />}
+            </div>
           </Box>
         </Link>
         <Link to={`/profiles/${pid}/quiz`}>
@@ -104,22 +108,56 @@ export function ProfileDetail() {
           管理全部 →
         </Link>
       </div>
-      {questions.length === 0 && (
+
+      {questions === null ? (
+        <SkeletonList rows={5} />
+      ) : questions.length === 0 ? (
         <Box variant="dashed" className="p-4 text-center">
           <p className="font-cn text-sm text-ink-2">还没有题，先加几道再来</p>
         </Box>
+      ) : (
+        <div className="space-y-2">
+          {questions.slice(0, 8).map((q) => (
+            <Box key={q.id} variant="soft" className="p-3">
+              <p className="font-cn text-sm leading-relaxed line-clamp-2">{q.stem}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="font-cn text-xs text-ink-2">难度 {'★'.repeat(q.difficulty)}</span>
+                <span className="font-cn text-xs text-ink-2">{q.tags.slice(0, 3).join(' · ')}</span>
+              </div>
+            </Box>
+          ))}
+        </div>
       )}
-      <div className="space-y-2">
-        {questions.slice(0, 8).map((q) => (
-          <Box key={q.id} variant="soft" className="p-3">
-            <p className="font-cn text-sm leading-relaxed line-clamp-2">{q.stem}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="font-cn text-xs text-ink-2">难度 {'★'.repeat(q.difficulty)}</span>
-              <span className="font-cn text-xs text-ink-2">{q.tags.slice(0, 3).join(' · ')}</span>
-            </div>
-          </Box>
-        ))}
-      </div>
     </Layout>
+  );
+}
+
+function SkeletonHeader() {
+  return (
+    <div className="border-2 border-ink/20 rounded-thick p-3 mb-3 bg-chip-cream/40 animate-pulse">
+      <div className="h-3 w-2/3 bg-ink/15 rounded mb-2" />
+      <div className="h-4 w-1/2 bg-ink/15 rounded" />
+    </div>
+  );
+}
+
+function SkeletonInline() {
+  return <span className="inline-block w-8 h-2 bg-ink/15 rounded animate-pulse align-middle" />;
+}
+
+function SkeletonList({ rows }: { rows: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: rows }, (_, i) => (
+        <div
+          key={i}
+          className="border border-ink/20 rounded-soft p-3 bg-white animate-pulse"
+        >
+          <div className="h-3 w-full bg-ink/15 rounded mb-2" />
+          <div className="h-3 w-3/4 bg-ink/15 rounded mb-2" />
+          <div className="h-2 w-1/3 bg-ink/15 rounded" />
+        </div>
+      ))}
+    </div>
   );
 }
