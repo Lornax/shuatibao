@@ -16,7 +16,7 @@ type Nudge = { tone: 'red' | 'yellow' | 'cream'; text: string } | null;
 
 function computeNudge(stats: StudyStats | null): Nudge {
   if (!stats) return null;
-  const { wrongbookCount, daysSinceLastAttempt, daysUntilExam } = stats;
+  const { totalQuestions, wrongbookCount, daysSinceLastAttempt, daysUntilExam } = stats;
   // 优先级从高到低，只显示一条
   if (daysUntilExam != null && daysUntilExam >= 0 && daysUntilExam <= 7 && wrongbookCount >= 10) {
     return {
@@ -39,7 +39,20 @@ function computeNudge(stats: StudyStats | null): Nudge {
   if (daysSinceLastAttempt != null && daysSinceLastAttempt >= 1) {
     return { tone: 'yellow', text: '💪 今天还没开张，要不要先从错题本来 10 道 →' };
   }
-  return null;
+  // 兜底：常态下也要让"今天日期 + 距考天数"有处可挂
+  const examLine =
+    daysUntilExam == null
+      ? '考试日期未设'
+      : daysUntilExam >= 0
+        ? `距考还剩 ${daysUntilExam} 天`
+        : `考期已过 ${-daysUntilExam} 天`;
+  const tail =
+    totalQuestions === 0
+      ? '题库还空着，先加几道题 →'
+      : daysSinceLastAttempt == null
+        ? `题库 ${totalQuestions} 道，开始今日刷题 →`
+        : '保持节奏，今日继续 →';
+  return { tone: 'cream', text: `${examLine} · ${tail}` };
 }
 
 export function ProfileDetail() {
