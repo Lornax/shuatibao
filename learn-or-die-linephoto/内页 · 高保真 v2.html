@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>学不死 · 内页 v2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --paper: #faf5ec;
+    --paper-2: #f5e8d8;
+    --ink: #2a1f15;
+    --ink-2: #6a5340;
+    --ink-3: #8a7560;
+    --ink-4: #b8a78f;
+    --accent: #c14d2e;
+    --yellow: #f5d97a;
+    --yellow-light: #fef3c7;
+    --green: #d4e8d0;
+    --blue: #c8d8e8;
+    --pink: #f5c8b8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background: #ebe7e0;
+    font-family: 'LXGW WenKai TC', 'PingFang SC', system-ui, sans-serif;
+    color: var(--ink);
+    padding: 40px 20px 60px;
+  }
+
+  .page-head {
+    max-width: 1280px;
+    margin: 0 auto 24px;
+    text-align: center;
+  }
+  .page-head h1 {
+    margin: 0 0 8px;
+    font-size: 32px;
+    color: var(--ink);
+  }
+  .page-head p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+
+  .row {
+    display: flex; flex-wrap: wrap;
+    gap: 36px; justify-content: center;
+  }
+
+  /* iPhone shell */
+  .phone {
+    width: 393px; height: 852px;
+    border-radius: 56px;
+    background: #0a0a0a;
+    padding: 12px;
+    box-shadow: 0 0 0 2px #2a2a2a inset, 0 30px 60px -20px rgba(0,0,0,0.35), 0 10px 25px -10px rgba(0,0,0,0.2);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    background:
+      radial-gradient(circle at 100% 0%, #fff 0%, transparent 45%),
+      radial-gradient(circle at 0% 100%, var(--paper-2) 0%, transparent 50%),
+      var(--paper);
+    color: var(--ink);
+  }
+  .island {
+    position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+    width: 124px; height: 37px; background: #000; border-radius: 20px;
+    z-index: 100;
+  }
+  .status-bar {
+    position: relative; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 19px 36px 0; height: 54px;
+    font-family: 'SF Pro Text', -apple-system, system-ui, sans-serif;
+    font-size: 16px; font-weight: 600;
+    color: var(--ink);
+  }
+  .status-bar svg { width: 17px; height: 11px; }
+  .home-indicator {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    width: 134px; height: 5px; border-radius: 3px;
+    background: var(--ink);
+  }
+
+  .body {
+    position: absolute; inset: 54px 0 24px 0;
+    padding: 12px 22px 0;
+    overflow-y: auto;
+  }
+
+  /* shared header */
+  .h-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .h-back {
+    width: 36px; height: 36px;
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--ink);
+    font-weight: 700;
+  }
+  .h-title { font-size: 22px; font-weight: 700; }
+  .h-icon-btn {
+    width: 36px; height: 36px;
+    border: 1.5px solid var(--ink);
+    border-radius: 18px;
+    background: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  /* primary button (v2) */
+  .btn {
+    height: 50px; padding: 0 22px;
+    border-radius: 25px;
+    border: 2px solid var(--ink);
+    font-family: inherit;
+    font-size: 15px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px; cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--ink); color: var(--paper);
+    box-shadow: 3px 4px 0 var(--accent);
+  }
+  .btn-secondary {
+    background: #fff; color: var(--ink);
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.18);
+  }
+  .btn-ghost {
+    background: transparent; color: var(--ink);
+    border: 1.5px dashed var(--ink-2); box-shadow: none;
+  }
+  .btn-small {
+    height: 32px; padding: 0 12px; border-radius: 16px;
+    font-size: 13px; border-width: 1.5px;
+  }
+
+  /* card */
+  .card {
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    border-radius: 16px;
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.12);
+    padding: 14px;
+  }
+  .card.thick {
+    border-width: 2px;
+    box-shadow: 3px 4px 0 var(--ink);
+  }
+
+  /* chip */
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px;
+    border: 1.5px solid var(--ink); border-radius: 14px;
+    font-size: 12px;
+    background: #fff;
+  }
+  .chip.yellow { background: var(--yellow-light); }
+  .chip.green { background: var(--green); }
+  .chip.blue { background: var(--blue); }
+  .chip.red { background: var(--pink); color: var(--accent); }
+
+  /* ─────────────────── PAGE 1: PROFILE LIST ─────────────────── */
+  .pl-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .pl-logo {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 22px; font-weight: 700;
+  }
+  .pl-logo .badge {
+    width: 32px; height: 32px;
+    background: var(--yellow);
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    box-shadow: 2px 2px 0 var(--ink);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700;
+    transform: rotate(-3deg);
+  }
+  .pl-actions { display: flex; gap: 8px; }
+  .pl-newbtn {
+    height: 36px; padding: 0 14px;
+    border-radius: 18px;
+    border: 2px solid var(--ink);
+    background: var(--ink); color: var(--paper);
+    box-shadow: 2px 3px 0 var(--accent);
+    font-size: 13px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .pl-me {
+    width: 36px; height: 36px;
+    border: 2px solid var(--ink); border-radius: 50%;
+    background: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.15);
+  }
+
+  .profile-card {
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .profile-card .dot-flag {
+    position: absolute;
+    top: -6px; left: 14px;
+    background: var(--accent); color: white;
+    padding: 2px 10px;
+    border: 1.5px solid var(--ink);
+    border-radius: 8px;
+    font-size: 10px; font-weight: 700;
+    transform: rotate(-3deg);
+  }
+  .profile-card .pc-top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px;
+  }
+  .profile-card .pc-tag {
+    font-size: 11px; padding: 2px 8px;
+    border: 1px solid var(--ink-2); border-radius: 8px;
+    color: var(--ink-2);
+  }
+  .profile-card .pc-dday {
+    font-size: 13px; font-weight: 700;
+    color: var(--accent);
+  }
+  .profile-card .pc-name {
+    font-size: 19px; font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .profile-card .pc-meta {
+    font-size: 12px; color: var(--ink-2);
+    line-height: 1.6;
+  }
+  .profile-card .pc-bar {
+    margin-top: 10px;
+    display: flex; gap: 14px;
+    font-size: 12px;
+  }
+  .profile-card .pc-bar .num {
+    font-weight: 700; color: var(--ink);
+    font-size: 14px; margin-right: 2px;
+  }
+  .pc-more {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px;
+    border: 1px solid var(--ink-3);
+    border-radius: 50%;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--ink-2);
+  }
+
+  .pl-archived-toggle {
+    text-align: center;
+    font-size: 13px; color: var(--ink-2);
+    margin-top: 20px;
+    text-decoration: underline;
+    text-decoration-style: dashed;
+  }
+
+  /* ─────────────────── PAGE 2: PROFILE DETAIL ─────────────────── */
+  .pd-nudge {
+    background: var(--pink);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    box-shadow: 2px 3px 0 var(--ink);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600;
+  }
+  .pd-nudge .nudge-icon {
+    font-size: 18px;
+  }
+
+  .pd-job {
+    background: var(--green);
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.12);
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px;
+  }
+  .pd-job .job-tag {
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    padding: 3px 9px;
+    font-size: 11px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .pd-job .job-body { flex: 1; min-width: 0; }
+  .pd-job .job-file {
+    margin: 0; font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .pd-job .job-sub {
+    margin: 0; font-size: 10px; color: var(--ink-3);
+  }
+  .pd-job .job-go {
+    font-weight: 700; font-size: 14px;
+  }
+
+  .pd-tb-ready {
+    background: var(--blue);
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.12);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+  }
+
+  .pd-meta {
+    background: var(--yellow-light);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.12);
+    position: relative;
+  }
+  .pd-meta .pd-target {
+    font-size: 14px; font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .pd-meta .pd-info {
+    font-size: 12px; color: var(--ink-2);
+  }
+  .pd-meta::after {
+    content: '✦';
+    position: absolute;
+    right: 14px; top: 8px;
+    color: var(--accent);
+    font-size: 16px;
+  }
+
+  .pd-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .pd-block {
+    background: #fff;
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 12px 10px;
+    text-align: center;
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.12);
+    cursor: pointer;
+  }
+  .pd-block.feature {
+    background: var(--yellow-light);
+    box-shadow: 3px 4px 0 var(--accent);
+  }
+  .pd-block .pb-emoji {
+    font-size: 24px; margin-bottom: 2px;
+  }
+  .pd-block .pb-title {
+    font-size: 14px; font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .pd-block .pb-sub {
+    font-size: 11px; color: var(--ink-2);
+  }
+
+  .pd-section-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .pd-section-head h2 {
+    margin: 0; font-size: 18px; font-weight: 700;
+  }
+  .pd-actions-right {
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .pd-quick-quiz {
+    background: var(--green);
+    border: 1.5px solid var(--ink);
+    border-radius: 14px;
+    padding: 6px 12px;
+    font-size: 12px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .pd-manage-link {
+    font-size: 12px;
+    color: var(--ink-2);
+    text-decoration: underline;
+    text-decoration-style: dashed;
+    text-decoration-color: var(--ink-3);
+  }
+
+  .q-item {
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    border-radius: 14px;
+    padding: 12px;
+    margin-bottom: 10px;
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.1);
+    cursor: pointer;
+    position: relative;
+  }
+  .q-item .q-stem {
+    font-size: 13px; line-height: 1.5;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .q-item .q-foot {
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    font-size: 11px; color: var(--ink-2);
+  }
+  .q-item .q-go {
+    position: absolute; right: 12px; bottom: 10px;
+    font-size: 11px; color: var(--accent); font-weight: 600;
+  }
+
+  .pd-foot-link {
+    text-align: center;
+    font-size: 13px; color: var(--ink-2);
+    margin-top: 6px;
+    text-decoration: underline;
+    text-decoration-style: dashed;
+    text-decoration-color: var(--ink-3);
+  }
+
+  /* ─────────────────── PAGE 3: QUIZ REVEALED ─────────────────── */
+  .qz-counter {
+    background: var(--yellow-light);
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    padding: 6px 12px;
+    margin-bottom: 12px;
+    display: flex; justify-content: space-between;
+    font-size: 12px;
+  }
+  .qz-counter .qc-big {
+    font-weight: 700; font-size: 14px;
+  }
+
+  .qz-stem {
+    background: var(--yellow-light);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 14px;
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.12);
+    font-size: 14px; line-height: 1.55;
+  }
+
+  .opt {
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px;
+  }
+  .opt .o-key {
+    font-weight: 700;
+    width: 22px;
+  }
+  .opt.correct {
+    background: var(--green);
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.1);
+  }
+  .opt.chosen-wrong {
+    background: var(--pink);
+  }
+  .opt .o-tag {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 8px;
+  }
+  .opt.correct .o-tag {
+    background: var(--ink); color: white;
+  }
+  .opt.chosen-wrong .o-tag {
+    background: var(--accent); color: white;
+  }
+
+  .expl {
+    background: #fff;
+    border: 1.5px dashed var(--ink-2);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+  .expl .expl-tag {
+    font-size: 11px; font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .expl .cite {
+    display: inline-block;
+    background: var(--yellow-light);
+    border: 1px solid var(--ink);
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: 10px;
+    margin-left: 4px;
+  }
+
+  .qz-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.4fr;
+    gap: 8px;
+  }
+  .qz-actions .btn-small {
+    width: 100%;
+    height: 38px;
+    padding: 0;
+  }
+
+  /* extras shared bottom strip */
+  .wb-toggle {
+    margin: 12px 0;
+    background: var(--yellow-light);
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px;
+    box-shadow: 2px 2px 0 rgba(42,31,21,0.1);
+  }
+  .wb-toggle .wb-info { color: var(--ink-2); }
+
+  .chat-collapse {
+    margin-top: 14px;
+    border: 1.5px dashed var(--ink-2);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: space-between;
+    color: var(--ink-2);
+  }
+
+  /* page label */
+  .label {
+    text-align: center; margin-top: 12px;
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .label b { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>学不死 · 内页 v2 高保真</h1>
+  <p>沿用登录页设计语言: 米色背景 · 黑边 · 红影 · 霞鹜文楷</p>
+</div>
+
+<div class="row">
+
+  <!-- ════════════════ PAGE 1: 档案列表 ════════════════ -->
+  <div>
+    <div class="phone">
+      <div class="screen">
+        <div class="island"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span style="display:flex;gap:6px;align-items:center;">
+            <svg viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="3" width="3" height="6" rx="1"/><rect x="5" y="2" width="3" height="8" rx="1"/><rect x="10" y="1" width="3" height="10" rx="1"/></svg>
+            <svg viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="2.5" stroke="currentColor" fill="none"/><rect x="22.5" y="3.5" width="1.5" height="5" rx="0.5" fill="currentColor"/><rect x="2" y="2" width="18" height="8" rx="1.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+
+        <div class="body">
+
+          <div class="pl-header">
+            <div class="pl-logo">
+              <span class="badge">学</span>
+              我的备考
+            </div>
+            <div class="pl-actions">
+              <a class="pl-me" href="#">👤</a>
+              <button class="pl-newbtn">+ 新档案</button>
+            </div>
+          </div>
+
+          <div class="card thick profile-card">
+            <span class="dot-flag">主线</span>
+            <div class="pc-more">⋯</div>
+            <div class="pc-top" style="margin-top: 6px;">
+              <span></span>
+              <span class="pc-dday">D-8</span>
+            </div>
+            <div class="pc-name">NPDP 备考</div>
+            <div class="pc-meta">
+              目标：通过 NPDP, 拿证书<br/>
+              每天 75 分钟
+            </div>
+          </div>
+
+          <div class="card profile-card" style="opacity: 0.95;">
+            <div class="pc-more">⋯</div>
+            <div class="pc-top">
+              <span class="pc-tag">备考</span>
+              <span class="pc-dday" style="color: var(--ink-2);">D-58</span>
+            </div>
+            <div class="pc-name">PMP</div>
+            <div class="pc-meta">
+              60 分通过<br/>
+              每天 60 分钟
+            </div>
+          </div>
+
+          <div class="pl-archived-toggle">已归档 (2) ▾</div>
+
+        </div>
+
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+    <p class="label"><b>① 档案列表</b> · D-day 红字 · 主线档案立体卡片</p>
+  </div>
+
+  <!-- ════════════════ PAGE 2: 档案详情 ════════════════ -->
+  <div>
+    <div class="phone">
+      <div class="screen">
+        <div class="island"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span style="display:flex;gap:6px;align-items:center;">
+            <svg viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="2.5" stroke="currentColor" fill="none"/><rect x="22.5" y="3.5" width="1.5" height="5" rx="0.5" fill="currentColor"/><rect x="2" y="2" width="18" height="8" rx="1.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+
+        <div class="body">
+
+          <div class="h-top">
+            <div class="h-back">‹</div>
+            <div class="h-title">NPDP 备考</div>
+            <div class="h-icon-btn">⋯</div>
+          </div>
+
+          <!-- nudge -->
+          <div class="pd-nudge">
+            <span class="nudge-icon">⏰</span>
+            <span>距考还剩 8 天, 错题积压 11 道, 去 AI 陪学聊冲刺 →</span>
+          </div>
+
+          <!-- inflight job chip (PDF 解析中 / 待审) -->
+          <div class="pd-job">
+            <span class="job-tag">3 道待审</span>
+            <div class="job-body">
+              <p class="job-file">NPDP真题精选-2024.pdf</p>
+              <p class="job-sub">共 3 道, 点击继续审</p>
+            </div>
+            <span class="job-go">›</span>
+          </div>
+
+          <!-- textbook ready -->
+          <div class="pd-tb-ready">
+            <span>📚</span>
+            <span>教材就绪 · 1 本 · 7 章 · 376 段</span>
+            <span style="margin-left:auto;font-weight:700;">›</span>
+          </div>
+
+          <!-- profile meta card -->
+          <div class="pd-meta">
+            <div class="pd-target">通过 NPDP, 拿证书</div>
+            <div class="pd-info">2026-05-23 · 每天 75 分钟</div>
+          </div>
+
+          <!-- 4 grid -->
+          <div class="pd-grid">
+            <div class="pd-block">
+              <div class="pb-emoji">📝</div>
+              <div class="pb-title">+ 加题</div>
+              <div class="pb-sub">61 道</div>
+            </div>
+            <div class="pd-block">
+              <div class="pb-emoji">📚</div>
+              <div class="pb-title">教材库</div>
+              <div class="pb-sub">AI 引用章节</div>
+            </div>
+            <div class="pd-block">
+              <div class="pb-emoji">❌</div>
+              <div class="pb-title">错题本</div>
+              <div class="pb-sub">11 道</div>
+            </div>
+            <div class="pd-block feature">
+              <div class="pb-emoji">💬</div>
+              <div class="pb-title">AI 陪学</div>
+              <div class="pb-sub">主动建议</div>
+            </div>
+          </div>
+
+          <!-- 最近的题 -->
+          <div class="pd-section-head">
+            <h2>最近的题</h2>
+            <div class="pd-actions-right">
+              <div class="pd-quick-quiz">▶ 开始刷题</div>
+              <a class="pd-manage-link" href="#">管理全部 →</a>
+            </div>
+          </div>
+
+          <div class="q-item">
+            <div class="q-stem">持续式产品创新原则的核心在于以客户为中心, 通过不断的迭代...</div>
+            <div class="q-foot">
+              <span class="chip yellow">PDF</span>
+              <span>难度 ★★</span>
+            </div>
+            <div class="q-go">点击答这道 →</div>
+          </div>
+
+          <div class="q-item">
+            <div class="q-stem">企业要采取持续创新, 需要哪个层级的战略对齐? A. 公司战略...</div>
+            <div class="q-foot">
+              <span class="chip green">手输</span>
+              <span>难度 ★★★</span>
+            </div>
+            <div class="q-go">点击答这道 →</div>
+          </div>
+
+          <div class="q-item">
+            <div class="q-stem">19、请根据以下陈述选择最优答案: 陈述 1 开放式创新...</div>
+            <div class="q-foot">
+              <span class="chip yellow">PDF</span>
+              <span>难度 ★★★★</span>
+            </div>
+            <div class="q-go">点击答这道 →</div>
+          </div>
+
+          <div class="pd-foot-link">共 61 道 · 进入题库管理查看全部 →</div>
+
+        </div>
+
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+    <p class="label"><b>② 档案详情</b> · 催促 chip · 教材就绪 · 4 入口 + AI 陪学突出 · 近题列表</p>
+  </div>
+
+  <!-- ════════════════ PAGE 3: QUIZ REVEALED ════════════════ -->
+  <div>
+    <div class="phone">
+      <div class="screen">
+        <div class="island"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span style="display:flex;gap:6px;align-items:center;">
+            <svg viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="2.5" stroke="currentColor" fill="none"/><rect x="22.5" y="3.5" width="1.5" height="5" rx="0.5" fill="currentColor"/><rect x="2" y="2" width="18" height="8" rx="1.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+
+        <div class="body">
+
+          <div class="h-top">
+            <div class="h-back">‹</div>
+            <div class="h-title">答题</div>
+            <div class="h-icon-btn">⏸</div>
+          </div>
+
+          <!-- counter -->
+          <div class="qz-counter">
+            <span>本次第 <span class="qc-big">5</span> 道</span>
+            <span style="color: var(--ink-2);">剩 11 道未掌握 / 共 61</span>
+          </div>
+
+          <!-- stem -->
+          <div class="qz-stem">
+            产品生命周期理论中, 在成熟期阶段, 企业应采取的核心策略是?
+          </div>
+
+          <!-- options -->
+          <div class="opt">
+            <span class="o-key">A.</span>
+            <span>加快市场推广, 抢占市场份额</span>
+          </div>
+          <div class="opt chosen-wrong">
+            <span class="o-key">B.</span>
+            <span>大幅降价, 清理库存</span>
+            <span class="o-tag">你选的</span>
+          </div>
+          <div class="opt correct">
+            <span class="o-key">C.</span>
+            <span>差异化竞争 + 寻找新细分市场</span>
+            <span class="o-tag">正确 ✓</span>
+          </div>
+          <div class="opt">
+            <span class="o-key">D.</span>
+            <span>停产, 进入衰退期管理</span>
+          </div>
+
+          <!-- expl -->
+          <div class="expl">
+            <div class="expl-tag">解析</div>
+            产品生命周期成熟期的特征是市场需求增长放缓, 竞争加剧. 此时降价 (B) 会引发价格战, 利润下滑. 正确策略是差异化竞争 + 寻找新细分市场延长成熟期 <span class="cite">第 3 章·第 87 页</span>
+          </div>
+
+          <!-- wrongbook toggle -->
+          <div class="wb-toggle">
+            <span>⭐ 已在错题本</span>
+            <span class="wb-info">答对 1/3 后移除 · ✕ 移除</span>
+          </div>
+
+          <!-- chat collapse -->
+          <div class="chat-collapse">
+            <span>💬 跟 AI 聊这道题</span>
+            <span style="font-weight:700;color: var(--ink);">▾</span>
+          </div>
+
+          <!-- actions -->
+          <div class="qz-actions" style="margin-top:14px;">
+            <button class="btn btn-secondary btn-small">← 上一题</button>
+            <button class="btn btn-ghost btn-small">收摊</button>
+            <button class="btn btn-primary btn-small">下一题 →</button>
+          </div>
+
+        </div>
+
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+    <p class="label"><b>③ 答题 · 揭晓态</b> · 题干米黄 · 选项绿/红 · 解析含 [章节·页码] · 错题本状态</p>
+  </div>
+
+</div>
+
+<div style="max-width: 880px; margin: 48px auto 0; padding: 20px 24px; border: 1.5px solid var(--ink); border-radius: 16px; background: var(--yellow-light); box-shadow: 3px 4px 0 var(--ink);">
+  <h2 style="margin: 0 0 10px; font-size: 18px;">核心视觉决策</h2>
+  <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8; color: var(--ink-2);">
+    <li>主色 <code>#2a1f15</code> 深棕黑 比纯黑更柔和, 长时间阅读不刺眼</li>
+    <li>红影 <code>3px 4px 0 #c14d2e</code> 只用于主按钮 + 红色主线 chip, 视觉收敛不滥用</li>
+    <li>米黄 <code>#fef3c7</code> 用于"提示性容器"(档案 meta / 题干 / 计数), 绿 <code>#d4e8d0</code> 标"正确"</li>
+    <li>圆角层级: 32px 卡片 / 22px chip / 14px card / 12px option</li>
+    <li>字体 <code>LXGW WenKai TC</code> 中文楷体, 比 PingFang 更有"笔记本"温度</li>
+    <li>装饰元素 (✦ 角标 / sticky note) 只在登录页用, 内页保持克制</li>
+  </ul>
+</div>
+
+</body>
+</html>
