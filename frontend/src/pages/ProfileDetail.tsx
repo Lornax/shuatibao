@@ -57,7 +57,7 @@ export function ProfileDetail() {
     // 四条并行，谁先到先 setState（progressive rendering）— 避免整页等 Promise.all
     api.getProfile(pid).then(setProfile).catch(() => setProfile(null));
     api
-      .listQuestionsPaged(pid, { limit: 4 })
+      .listQuestionsPaged(pid, { limit: 3 })
       .then((r) => {
         setQuestions(r.rows);
         setQuestionsTotal(r.total);

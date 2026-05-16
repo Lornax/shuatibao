@@ -19,9 +19,9 @@ export default {
           4: '#6ba368',
         },
         chip: {
-          blue: '#c8d8e8',
-          green: '#d4e8d0',
-          pink: '#f5c8b8',
+          blue: '#dde7ef',
+          green: '#dfecdb',
+          pink: '#fce0d5',
           cream: '#fef3c7',
         },
       },
