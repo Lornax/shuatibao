@@ -17,6 +17,7 @@ import { chatRouter } from './routes/chat.js';
 import { studyChatRouter } from './routes/study-chat.js';
 import { textbooksRouter } from './routes/textbooks.js';
 import { selfHealTextbooksOnBoot } from './lib/textbook-worker.js';
+import { authRouter } from './routes/auth.js';
 import { selfHealOnBoot } from './lib/import-worker.js';
 
 const app = new Hono<{ Variables: AuthVars }>();
@@ -44,6 +45,8 @@ if (isProd && config.BASIC_AUTH_USER && config.BASIC_AUTH_PASS) {
   });
 }
 
+// 公开 auth 端点 (register/login), 不挂 auth middleware. 必须在 auth.use 之前 mount.
+app.route('/api/auth', authRouter);
 app.use('/api/*', auth);
 
 app.get('/health', (c) => c.json({ ok: true, version: '0.0.1' }));

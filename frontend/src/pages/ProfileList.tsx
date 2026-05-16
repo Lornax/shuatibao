@@ -65,7 +65,10 @@ export function ProfileList() {
 
   return (
     <Layout title="我的备考">
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-end mb-3 gap-2">
+        <Link to="/me">
+          <Button variant="ghost">我的</Button>
+        </Link>
         <Link to="/profiles/new">
           <Button variant="primary">+ 新档案</Button>
         </Link>

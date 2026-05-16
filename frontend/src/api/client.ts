@@ -1,18 +1,36 @@
-const TOKEN = import.meta.env.VITE_API_TOKEN as string;
+const TOKEN_KEY = 'lod_auth_token';
 
-if (!TOKEN) {
-  throw new Error('VITE_API_TOKEN missing in frontend/.env.local');
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+// 401 时让 AuthGuard 路由跳 /login
+let on401: (() => void) | null = null;
+export function setOn401Handler(fn: () => void) {
+  on401 = fn;
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${TOKEN}`,
-      ...(init.headers || {}),
-    },
-  });
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`/api${path}`, { ...init, headers });
+  if (res.status === 401) {
+    clearToken();
+    on401?.();
+    throw new Error('unauthorized');
+  }
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
     throw new Error(`api ${path} ${res.status}: ${detail}`);
@@ -133,7 +151,27 @@ export type WrongbookEntry = {
   addedAt: string;
 };
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  nickname: string;
+  createdAt?: string;
+};
+
 export const api = {
+  // ----- auth -----
+  register: (input: { email: string; nickname: string; password: string }) =>
+    request<{ token: string; user: AuthUser }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  login: (input: { email: string; password: string }) =>
+    request<{ token: string; user: AuthUser }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  me: () => request<{ user: AuthUser }>('/auth/me'),
+
   listProfiles: () => request<Profile[]>('/profiles'),
   createProfile: (input: { examName: string; target?: string; examDate?: string; dailyMinutes?: number }) =>
     request<Profile>('/profiles', { method: 'POST', body: JSON.stringify(input) }),
@@ -189,7 +227,7 @@ export const api = {
     fd.set('image', file);
     return fetch(`/api/profiles/${pid}/parse/image`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${TOKEN}` },
+      headers: { Authorization: `Bearer ${getToken() ?? ""}` },
       body: fd,
     }).then(async (res) => {
       if (!res.ok) throw new Error(`parseImage ${res.status}: ${await res.text()}`);
@@ -202,7 +240,7 @@ export const api = {
     fd.set('pdf', file);
     return fetch(`/api/profiles/${pid}/parse/pdf`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${TOKEN}` },
+      headers: { Authorization: `Bearer ${getToken() ?? ""}` },
       body: fd,
     }).then(async (res) => {
       if (!res.ok) throw new Error(`parsePdf ${res.status}: ${await res.text()}`);
@@ -215,7 +253,7 @@ export const api = {
     fd.set('pdf', file);
     return fetch(`/api/profiles/${pid}/import-jobs`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${TOKEN}` },
+      headers: { Authorization: `Bearer ${getToken() ?? ""}` },
       body: fd,
     }).then(async (res) => {
       const body = await res.json().catch(() => ({}));
@@ -309,7 +347,7 @@ export const api = {
     fd.set('pdf', file);
     return fetch(`/api/profiles/${pid}/textbooks`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${TOKEN}` },
+      headers: { Authorization: `Bearer ${getToken() ?? ""}` },
       body: fd,
     }).then(async (res) => {
       const body = await res.json().catch(() => ({}));

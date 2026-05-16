@@ -7,6 +7,8 @@ const schema = z.object({
   API_TOKEN: z.string().min(8),
   SEED_USER_ID: z.string().uuid(),
   DASHSCOPE_API_KEY: z.string().min(8),
+  // JWT secret 用于多用户登录态. 至少 32 字符随机串.
+  JWT_SECRET: z.string().min(16),
   // optional production HTTP basic auth — wraps SPA & static files
   // to keep IP scanners from loading the JS bundle that contains the
   // hardcoded API token. /api/* + /health bypass this layer.
