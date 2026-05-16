@@ -59,6 +59,8 @@ export const importJobs = pgTable('import_jobs', {
   filename: text('filename').notNull(),
   totalChunks: integer('total_chunks').default(0).notNull(),
   doneChunks: integer('done_chunks').default(0).notNull(),
+  // chunks 是原始切分文本数组, 持久化用于重启后断点续传 (worker 从 doneChunks 起继续)
+  chunks: jsonb('chunks').$type<string[]>().default([]).notNull(),
   candidates: jsonb('candidates').$type<unknown[]>().default([]).notNull(),
   error: text('error'),
   cosUrl: text('cos_url'),

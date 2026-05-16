@@ -4,11 +4,7 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
 import { chunkPdfText } from '../lib/pdf-chunker.js';
-import {
-  processPdfImportJob,
-  registerJobChunks,
-  cancelJob,
-} from '../lib/import-worker.js';
+import { processPdfImportJob, cancelJob } from '../lib/import-worker.js';
 import { candidateArraySchema } from '../ai/parser.js';
 import { getSignedUrl, isCosEnabled, uploadPdfToCOS } from '../lib/cos.js';
 // pdf-parse has no types; runtime import OK
@@ -94,12 +90,12 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
       filename: file.name,
       totalChunks: chunks.length,
       doneChunks: 0,
+      chunks,
       candidates: [],
       cosUrl,
     })
     .returning({ id: schema.importJobs.id, totalChunks: schema.importJobs.totalChunks });
 
-  registerJobChunks(job.id, chunks);
   setImmediate(() => {
     processPdfImportJob(job.id).catch((e) => {
       // best-effort: worker already writes failed status on caught errors;

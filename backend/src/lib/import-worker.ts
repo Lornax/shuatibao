@@ -3,47 +3,50 @@ import { db, schema } from '../db/client.js';
 import { structureQuestionsFromPdfText } from '../ai/client.js';
 import type { CandidateQuestion } from '../ai/parser.js';
 
-/**
- * Holds the chunk array for each in-flight job. Not persisted —
- * worker only runs in the process that created the job. On restart,
- * pending/running rows are flipped to failed by self-heal in index.ts.
- */
-const chunksByJobId = new Map<string, string[]>();
+// 进程内 aborters: cancelJob 用. 进程重启会清空, 重启后 worker 会注册新的
 const abortersByJobId = new Map<string, AbortController>();
 
-export function registerJobChunks(jobId: string, chunks: string[]) {
-  chunksByJobId.set(jobId, chunks);
-}
-
 export function cancelJob(jobId: string) {
-  // abort the in-flight LLM fetch immediately — the worker's catch will
-  // observe AbortError and mark the job failed('cancelled')
   abortersByJobId.get(jobId)?.abort();
 }
 
 /**
- * Run a PDF import job: iterate chunks, call qwen-max per chunk,
- * accumulate candidates, mark completed/failed. Already-recognized
- * candidates are preserved even on failure (UX: user can use partial).
+ * 跑一个 PDF 导入任务. 状态 / chunks / candidates 全在 db, 不依赖内存,
+ * 进程重启后通过 selfHealOnBoot 重新调用即可从 doneChunks 续传.
  */
 export async function processPdfImportJob(jobId: string): Promise<void> {
-  const chunks = chunksByJobId.get(jobId);
-  if (!chunks) {
+  const [job] = await db
+    .select()
+    .from(schema.importJobs)
+    .where(eq(schema.importJobs.id, jobId));
+  if (!job) return;
+  if (job.status !== 'pending' && job.status !== 'running') return;
+
+  const chunks = job.chunks as string[];
+  if (!chunks || chunks.length === 0) {
     await markFailed(jobId, 'chunks_missing');
     return;
   }
 
+  const startIndex = job.doneChunks ?? 0;
+  const candidates: CandidateQuestion[] = ((job.candidates ?? []) as CandidateQuestion[]).slice();
+
   await db
     .update(schema.importJobs)
-    .set({ status: 'running', startedAt: new Date() })
+    .set({ status: 'running', startedAt: job.startedAt ?? new Date() })
     .where(eq(schema.importJobs.id, jobId));
 
   const abortCtl = new AbortController();
   abortersByJobId.set(jobId, abortCtl);
 
-  const candidates: CandidateQuestion[] = [];
+  if (startIndex > 0) {
+    console.log(
+      `[import-jobs ${jobId.slice(0, 8)}] resume from chunk ${startIndex + 1}/${chunks.length} (${candidates.length} candidates so far)`,
+    );
+  }
+
   try {
-    for (let i = 0; i < chunks.length; i++) {
+    for (let i = startIndex; i < chunks.length; i++) {
       const chunk = chunks[i];
       const t0 = Date.now();
       const part = await structureQuestionsFromPdfText(chunk, { signal: abortCtl.signal });
@@ -76,7 +79,6 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
       })
       .where(eq(schema.importJobs.id, jobId));
   } finally {
-    chunksByJobId.delete(jobId);
     abortersByJobId.delete(jobId);
   }
 }
@@ -89,14 +91,23 @@ async function markFailed(jobId: string, reason: string) {
 }
 
 /**
- * On boot, flip any pending/running rows to failed — the process that
- * owned them is gone. Called from index.ts.
+ * 启动时把所有 pending/running 的 jobs 重新调度 (断点续传).
+ * 取消旧的 "标 failed" 策略 — worker 全部读 db, 重启天然安全.
  */
 export async function selfHealOnBoot(): Promise<number> {
-  const r = await db
-    .update(schema.importJobs)
-    .set({ status: 'failed', error: 'server_restart', finishedAt: new Date() })
-    .where(sql`${schema.importJobs.status} in ('pending', 'running')`)
-    .returning({ id: schema.importJobs.id });
-  return r.length;
+  const stale = await db
+    .select({ id: schema.importJobs.id, doneChunks: schema.importJobs.doneChunks, totalChunks: schema.importJobs.totalChunks })
+    .from(schema.importJobs)
+    .where(sql`${schema.importJobs.status} in ('pending', 'running')`);
+  for (const row of stale) {
+    console.log(
+      `[import-jobs ${row.id.slice(0, 8)}] self-heal resume @ ${row.doneChunks}/${row.totalChunks}`,
+    );
+    setImmediate(() => {
+      processPdfImportJob(row.id).catch((e) =>
+        console.error('[import-jobs] resumed worker crashed', row.id, e),
+      );
+    });
+  }
+  return stale.length;
 }
