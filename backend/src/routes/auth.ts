@@ -98,4 +98,32 @@ router.get('/me', requireAuth, async (c) => {
   return c.json({ user });
 });
 
+const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1).max(100),
+  newPassword: z.string().min(6).max(100),
+});
+
+router.patch('/password', requireAuth, async (c) => {
+  const userId = c.get('userId' as never) as string | undefined;
+  if (!userId) return c.json({ error: 'unauthorized' }, 401);
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = passwordChangeSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: 'invalid_body' }, 400);
+
+  const [user] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.id, userId))
+    .limit(1);
+  if (!user) return c.json({ error: 'not_found' }, 404);
+
+  const ok = await verifyPassword(parsed.data.currentPassword, user.passwordHash);
+  if (!ok) return c.json({ error: 'invalid_current_password' }, 400);
+
+  const newHash = await hashPassword(parsed.data.newPassword);
+  await db.update(schema.users).set({ passwordHash: newHash }).where(eq(schema.users.id, userId));
+  return c.json({ ok: true });
+});
+
 export { router as authRouter };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, type ImportJobSummary, type Profile, type Question } from '../api/client';
+import { api, type ImportJobSummary, type Profile, type Question, type Textbook } from '../api/client';
 import { Box } from '../components/Box';
 import { Layout } from '../components/Layout';
 
@@ -50,6 +50,7 @@ export function ProfileDetail() {
   const [questionsTotal, setQuestionsTotal] = useState<number | null>(null);
   const [inflightJobs, setInflightJobs] = useState<ImportJobSummary[] | null>(null);
   const [stats, setStats] = useState<StudyStats | null>(null);
+  const [textbooks, setTextbooks] = useState<Textbook[] | null>(null);
 
   useEffect(() => {
     if (!pid) return;
@@ -79,7 +80,20 @@ export function ProfileDetail() {
       )
       .catch(() => setInflightJobs([]));
     api.getProfileStats(pid).then(setStats).catch(() => setStats(null));
+    api.listTextbooks(pid).then((r) => setTextbooks(r.textbooks)).catch(() => setTextbooks([]));
   }, [pid]);
+
+  // 汇总 ready 教材的章节数 / 段数
+  const tbSummary = (() => {
+    if (!textbooks) return null;
+    const ready = textbooks.filter((t) => t.status === 'ready');
+    if (ready.length === 0) return null;
+    return {
+      count: ready.length,
+      chapters: ready.reduce((s, t) => s + t.chapterCount, 0),
+      chunks: ready.reduce((s, t) => s + t.chunkCount, 0),
+    };
+  })();
 
   const nudge = computeNudge(stats);
 
@@ -100,6 +114,18 @@ export function ProfileDetail() {
             }`}
           >
             <p className="font-cn text-sm leading-relaxed">{nudge.text}</p>
+          </Box>
+        </Link>
+      )}
+
+      {tbSummary && (
+        <Link to={`/profiles/${pid}/textbooks`} className="block mb-3">
+          <Box variant="soft" className="p-2 bg-chip-blue flex items-center gap-2">
+            <span className="text-base">📚</span>
+            <p className="font-cn text-xs flex-1">
+              教材就绪 · {tbSummary.count} 本 · {tbSummary.chapters} 章 · {tbSummary.chunks} 段
+            </p>
+            <span className="font-handBold text-sm">›</span>
           </Box>
         </Link>
       )}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, setToken } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -8,6 +9,7 @@ import { Layout } from '../components/Layout';
 
 export function Register() {
   const nav = useNavigate();
+  const { refresh } = useAuth();
   const [email, setEmail] = useState('');
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
@@ -27,6 +29,7 @@ export function Register() {
         password,
       });
       setToken(r.token);
+      await refresh();
       nav('/profiles', { replace: true });
     } catch (e) {
       const msg = String(e);

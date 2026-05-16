@@ -70,7 +70,9 @@ router.post('/profiles/:pid/parse/prompt', async (c) => {
     const ragQuery = [parsed.data.knowledge, parsed.data.chapter, parsed.data.topics]
       .filter(Boolean)
       .join(' ');
-    const chunks = await retrieveRelevantChunks(pid, ragQuery, 3);
+    const chunks = await retrieveRelevantChunks(pid, ragQuery, 3, {
+      chapterFilter: parsed.data.chapter,
+    });
     console.log(
       `[parse/prompt] RAG: query="${ragQuery}" retrieved ${chunks.length} chunks${
         chunks.length > 0

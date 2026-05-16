@@ -171,6 +171,8 @@ export const api = {
       body: JSON.stringify(input),
     }),
   me: () => request<{ user: AuthUser }>('/auth/me'),
+  changePassword: (input: { currentPassword: string; newPassword: string }) =>
+    request<{ ok: true }>('/auth/password', { method: 'PATCH', body: JSON.stringify(input) }),
 
   listProfiles: () => request<Profile[]>('/profiles'),
   createProfile: (input: { examName: string; target?: string; examDate?: string; dailyMinutes?: number }) =>

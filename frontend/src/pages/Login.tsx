@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, setToken } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -8,6 +9,7 @@ import { Layout } from '../components/Layout';
 
 export function Login() {
   const nav = useNavigate();
+  const { refresh } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -20,6 +22,8 @@ export function Login() {
     try {
       const r = await api.login({ email: email.trim(), password });
       setToken(r.token);
+      // refresh AuthContext.user 后再跳, 否则 RequireAuth 看到 user 还是 null 会跳回 /login
+      await refresh();
       nav('/profiles', { replace: true });
     } catch (e) {
       setError(String(e).includes('invalid_credentials') ? '邮箱或密码错' : String(e));

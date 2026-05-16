@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, ilike } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import { cosineSimilarity, embed } from '../ai/client.js';
 
@@ -25,8 +25,17 @@ export async function retrieveRelevantChunks(
   profileId: string,
   query: string,
   topK = 3,
+  opts: { chapterFilter?: string } = {},
 ): Promise<RetrievedChunk[]> {
   if (!query.trim()) return [];
+
+  // 章节过滤: ILIKE %X% 匹配 chapter 列, 用户填的 "第3章" 能匹到 "第3章 产品..."
+  const whereClause = opts.chapterFilter?.trim()
+    ? and(
+        eq(schema.textbookChunks.profileId, profileId),
+        ilike(schema.textbookChunks.chapter, `%${opts.chapterFilter.trim()}%`),
+      )
+    : eq(schema.textbookChunks.profileId, profileId);
 
   const rows = await db
     .select({
@@ -37,7 +46,7 @@ export async function retrieveRelevantChunks(
       embedding: schema.textbookChunks.embedding,
     })
     .from(schema.textbookChunks)
-    .where(eq(schema.textbookChunks.profileId, profileId));
+    .where(whereClause);
   if (rows.length === 0) return [];
 
   const [queryVec] = await embed([query]);

@@ -3,12 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { api, clearToken, type AuthUser } from '../api/client';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
+import { Input } from '../components/Input';
 import { Layout } from '../components/Layout';
 
 export function Me() {
   const nav = useNavigate();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  const [pwOpen, setPwOpen] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [pwSubmitting, setPwSubmitting] = useState(false);
+  const [pwMsg, setPwMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
     api
@@ -21,6 +29,27 @@ export function Me() {
     if (!window.confirm('退出登录？')) return;
     clearToken();
     nav('/login', { replace: true });
+  }
+
+  async function changePassword() {
+    setPwMsg(null);
+    if (!currentPw) return setPwMsg({ kind: 'err', text: '请输入当前密码' });
+    if (newPw.length < 6) return setPwMsg({ kind: 'err', text: '新密码至少 6 位' });
+    if (newPw !== confirmPw) return setPwMsg({ kind: 'err', text: '两次输入的新密码不一致' });
+    setPwSubmitting(true);
+    try {
+      await api.changePassword({ currentPassword: currentPw, newPassword: newPw });
+      setPwMsg({ kind: 'ok', text: '密码已修改' });
+      setCurrentPw('');
+      setNewPw('');
+      setConfirmPw('');
+    } catch (e) {
+      const msg = String(e);
+      if (msg.includes('invalid_current_password')) setPwMsg({ kind: 'err', text: '当前密码错' });
+      else setPwMsg({ kind: 'err', text: msg });
+    } finally {
+      setPwSubmitting(false);
+    }
   }
 
   return (
@@ -47,6 +76,65 @@ export function Me() {
         ) : (
           <p className="font-cn text-sm text-ink-2">加载中...</p>
         )}
+
+        <Box variant="soft" className="p-3">
+          <button
+            type="button"
+            onClick={() => setPwOpen((v) => !v)}
+            className="w-full text-left font-cn text-sm font-bold flex items-center justify-between"
+          >
+            <span>🔒 修改密码</span>
+            <span className="font-handBold">{pwOpen ? '▴' : '▾'}</span>
+          </button>
+          {pwOpen && (
+            <div className="mt-3 space-y-2">
+              <div>
+                <label className="font-cn text-xs text-ink-2 block mb-1">当前密码</label>
+                <Input
+                  type="password"
+                  value={currentPw}
+                  onChange={(e) => setCurrentPw(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              <div>
+                <label className="font-cn text-xs text-ink-2 block mb-1">新密码（至少 6 位）</label>
+                <Input
+                  type="password"
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <label className="font-cn text-xs text-ink-2 block mb-1">再输一次新密码</label>
+                <Input
+                  type="password"
+                  value={confirmPw}
+                  onChange={(e) => setConfirmPw(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+              {pwMsg && (
+                <p
+                  className={`font-cn text-xs break-words ${
+                    pwMsg.kind === 'ok' ? 'text-accent-4' : 'text-accent'
+                  }`}
+                >
+                  {pwMsg.text}
+                </p>
+              )}
+              <Button
+                variant="primary"
+                onClick={changePassword}
+                disabled={pwSubmitting}
+                className="w-full justify-center"
+              >
+                {pwSubmitting ? '保存中...' : '确认修改'}
+              </Button>
+            </div>
+          )}
+        </Box>
 
         <Button variant="ghost" onClick={logout} className="w-full justify-center">
           <span className="text-accent">退出登录</span>
