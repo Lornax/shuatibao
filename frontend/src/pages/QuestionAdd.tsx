@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { Box } from '../components/Box';
@@ -60,9 +60,20 @@ function ManualForm({ pid, onDone }: { pid: string; onDone: () => void }) {
   const [answer, setAnswer] = useState<string>('A');
   const [explanation, setExplanation] = useState('');
   const [difficulty, setDifficulty] = useState(2);
-  const [tagInput, setTagInput] = useState('NPDP');
+  const [tagInput, setTagInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historyTags, setHistoryTags] = useState<{ tag: string; cnt: number }[]>([]);
+
+  useEffect(() => {
+    api.listTags(pid).then(setHistoryTags).catch(() => setHistoryTags([]));
+  }, [pid]);
+
+  function appendTag(tag: string) {
+    const parts = tagInput.split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.includes(tag)) return;
+    setTagInput(parts.length === 0 ? tag : `${parts.join(', ')}, ${tag}`);
+  }
 
   function setOption(i: number, text: string) {
     setOptionTexts((prev) => prev.map((t, idx) => (idx === i ? text : t)));
@@ -124,8 +135,27 @@ function ManualForm({ pid, onDone }: { pid: string; onDone: () => void }) {
         <Textarea value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={2} />
       </div>
       <div>
-        <label className="font-cn font-bold text-sm block mb-1">标签（逗号分隔）</label>
-        <Input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="NPDP, 基础" />
+        <label className="font-cn font-bold text-sm block mb-1">标签（选填，逗号分隔）</label>
+        <Input
+          value={tagInput}
+          onChange={(e) => setTagInput(e.target.value)}
+          placeholder="例：易错、BCG矩阵"
+        />
+        {historyTags.filter((t) => !t.tag.startsWith('章节:')).length > 0 && (
+          <div className="mt-2">
+            <p className="font-cn text-xs text-ink-2 mb-1">历史标签（点击追加）：</p>
+            <div className="flex gap-1 flex-wrap">
+              {historyTags
+                .filter((t) => !t.tag.startsWith('章节:'))
+                .slice(0, 10)
+                .map((t) => (
+                  <Chip key={t.tag} onClick={() => appendTag(t.tag)}>
+                    {t.tag} <span className="text-ink-3">·{t.cnt}</span>
+                  </Chip>
+                ))}
+            </div>
+          </div>
+        )}
       </div>
       <div>
         <label className="font-cn font-bold text-sm block mb-1">难度</label>

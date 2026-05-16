@@ -97,10 +97,48 @@ export function ProfileDetail() {
 
   const nudge = computeNudge(stats);
 
+  // 顶部日期 + 距考天数 (北京时间)
+  const todayCn = new Date().toLocaleDateString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
+  const daysUntilExam = stats?.daysUntilExam;
+  const examTone =
+    daysUntilExam == null
+      ? 'neutral'
+      : daysUntilExam < 0
+        ? 'over'
+        : daysUntilExam <= 7
+          ? 'urgent'
+          : daysUntilExam <= 30
+            ? 'soon'
+            : 'normal';
+
   const title = profile ? profile.examName : '加载中';
 
   return (
     <Layout title={title} back={() => nav('/profiles')}>
+      <div className="flex items-center justify-between mb-3 px-1 text-xs">
+        <span className="font-cn text-ink-2">📅 今天 {todayCn}</span>
+        {daysUntilExam != null && (
+          <span
+            className={`font-cn font-bold ${
+              examTone === 'urgent'
+                ? 'text-accent'
+                : examTone === 'soon'
+                  ? 'text-ink'
+                  : examTone === 'over'
+                    ? 'text-ink-3'
+                    : 'text-ink-2'
+            }`}
+          >
+            {daysUntilExam >= 0 ? `距考还剩 ${daysUntilExam} 天` : `考试已过 ${-daysUntilExam} 天`}
+          </span>
+        )}
+      </div>
+
       {nudge && (
         <Link to={`/profiles/${pid}/study-chat`} className="block mb-3">
           <Box

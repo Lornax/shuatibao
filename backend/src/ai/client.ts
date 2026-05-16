@@ -157,11 +157,19 @@ export async function chatAboutQuestion(
   textbookReference?: string,
 ): Promise<string> {
   const optionsStr = question.options.map((o) => `${o.key}. ${o.text}`).join('\n');
+  const cnDate = new Date().toLocaleDateString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  });
   let systemPrompt = CHAT_SYSTEM_PROMPT_TEMPLATE
     .replace('{stem}', question.stem)
     .replace('{options}', optionsStr)
     .replace('{answer}', question.answer || '（未标注）')
     .replace('{explanation}', question.explanation || '（无）');
+  systemPrompt = `今天是 ${cnDate}（Asia/Shanghai）。\n\n${systemPrompt}`;
   if (textbookReference) systemPrompt += `\n\n${textbookReference}`;
 
   const r = await client.chat.completions.create({
