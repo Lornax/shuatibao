@@ -48,10 +48,10 @@ function computeNudge(stats: StudyStats | null): Nudge {
         : `考期已过 ${-daysUntilExam} 天`;
   const tail =
     totalQuestions === 0
-      ? '题库还空着，先加几道题 →'
+      ? '题库还空着，找 AI 教练聊聊从哪开始 →'
       : daysSinceLastAttempt == null
-        ? `题库 ${totalQuestions} 道，开始今日刷题 →`
-        : '保持节奏，今日继续 →';
+        ? `题库 ${totalQuestions} 道，跟 AI 教练定个今日计划 →`
+        : '跟 AI 教练唠两句保持节奏 →';
   return { tone: 'cream', text: `${examLine} · ${tail}` };
 }
 
