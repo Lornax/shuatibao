@@ -350,9 +350,14 @@ function RevealedView({
         {record.q.options.map((o) => {
           const isUserChoice = o.key === record.chosen;
           const isCorrect = o.key === record.correct;
-          const bg = isCorrect ? 'bg-chip-green' : isUserChoice ? 'bg-chip-pink' : '';
+          // inline style 是为了覆盖 Box variant="soft" 自带的 bg-white
+          const bg = isCorrect
+            ? '#d4f4dd'
+            : isUserChoice
+              ? '#fde0e0'
+              : undefined;
           return (
-            <Box key={o.key} variant="soft" className={`p-3 ${bg}`}>
+            <Box key={o.key} variant="soft" className="p-3" style={bg ? { background: bg } : undefined}>
               <span className="font-handBold font-bold mr-2">{o.key}.</span>
               <span className="font-cn text-sm">{o.text}</span>
               {isCorrect && <span className="font-cn text-xs ml-2 text-accent-4">正确</span>}
