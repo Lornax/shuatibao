@@ -106,10 +106,16 @@ learn-or-die-linephoto/  # 线框图（Claude Design 输出）
 5. **dev/启动脚本必须带内存上限**：`NODE_OPTIONS=--max-old-space-size=2048`（或更小）。作保险丝，让进程超阈值自杀，不让它继续吞物理内存拖死系统。
 6. **遵守 Superpowers 流程**：brainstorming → design doc → plan → subagent development → TDD → code review → finish branch。不允许跳过 brainstorming 和 planning 阶段直接写代码。
 
-## Tech Debt
-- ~~PDF 原文件下载~~ ✅ 已做 (v0.0.3.2)：上传时推到腾讯云北京 COS bucket `zp1-1428145534`，URL 存进 `import_jobs.cos_url`，GET 时 mint 10 分钟 signed URL。
-- ~~PDF 识别完整性~~ ✅ 主因已修 (v0.0.2.5 partial-tolerant 解析)：单道烂题不再 nuke 整 chunk。
-- **AI 陪学 Tab**：design.md 规划的独立 Tab（主动学习建议 / 错题复盘 / 进度督促），目前只做了"题目页问 AI"单点入口。
+## 阶段性收尾 · Stage 1 MVP（2026-05-16 · v0.0.8.3）
+
+P1 验收 7 条全部达成，作者本人能在 H5 完整跑通备考流程。下期开发清单见 [`docs/roadmap.md`](docs/roadmap.md)。
+
+## Tech Debt（已清完，下期待办迁移到 roadmap.md）
+- ~~PDF 原文件下载~~ ✅ v0.0.3.2 COS 上传 + signed URL
+- ~~PDF 识别完整性~~ ✅ v0.0.2.5 partial-tolerant 解析
+- ~~AI 陪学 Tab~~ ✅ v0.0.4.0 完成独立 Tab（StudyChat + welcome + 主动催促）
+- ~~教材章节误识别~~ ✅ v0.0.6.2 cleanChapterTitle + reprocess 端点
+- ~~PDF 导入服务重启丢任务~~ ✅ v0.0.8.2 chunks 持久化 + selfHeal 续传
 
 ## v0.0.2.6（2026-05-14，Quiz 答题页打磨 + 拍照入口拆分）
 

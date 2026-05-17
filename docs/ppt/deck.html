@@ -1,0 +1,989 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>学不死 lite · 路演 PPT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC&family=Patrick+Hand&family=Kalam:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #faf5ec;
+    --paperWarm: #fef3c7;
+    --ink: #2a1f15;
+    --ink2: #6a5340;
+    --ink3: #8a7560;
+    --ink4: #b8a78f;
+    --accent: #c14d2e;
+    --accent2: #f5d97a;
+    --accent3: #4a7eb8;
+    --accent4: #6ba368;
+    --chip-blue: #dde7ef;
+    --chip-green: #dfecdb;
+    --chip-pink: #fce0d5;
+    --chip-cream: #fef3c7;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    font-family: "LXGW WenKai TC", "PingFang SC", "Noto Sans SC", sans-serif;
+    background: #f0e6d6;
+    color: var(--ink);
+    overflow: hidden;
+  }
+  .deck { width: 100vw; height: 100vh; position: relative; }
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    background: var(--paper);
+  }
+  .slide.active { display: flex; }
+  .slide-inner {
+    width: min(96vw, calc(96vh * 16 / 9));
+    aspect-ratio: 16 / 9;
+    background: var(--paper);
+    border: 2.5px solid var(--ink);
+    border-radius: 12px;
+    box-shadow: 4px 6px 0 var(--accent);
+    padding: 56px 72px;
+    position: relative;
+    overflow: hidden;
+  }
+  h1 { font-size: 56px; margin: 0 0 12px; line-height: 1.15; }
+  h2 { font-size: 40px; margin: 0 0 24px; line-height: 1.2; }
+  h3 { font-size: 28px; margin: 0 0 16px; }
+  p { font-size: 22px; line-height: 1.6; margin: 0 0 10px; color: var(--ink); }
+  .subtle { color: var(--ink2); font-size: 18px; }
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border: 1.5px solid var(--ink);
+    border-radius: 999px;
+    font-size: 16px;
+    background: var(--chip-cream);
+    margin-right: 6px;
+  }
+  .tag.accent { background: var(--accent); color: var(--paper); }
+  .tag.blue { background: var(--chip-blue); }
+  .tag.green { background: var(--chip-green); }
+  .tag.pink { background: var(--chip-pink); }
+  .box {
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 18px 22px;
+    background: #fff;
+    box-shadow: 2px 3px 0 rgba(42,31,21,0.12);
+  }
+  .box.thick {
+    border-width: 2.5px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .box.warm { background: var(--chip-cream); }
+  .box.pink { background: var(--chip-pink); }
+  .box.green { background: var(--chip-green); }
+  .box.blue { background: var(--chip-blue); }
+  ul { font-size: 22px; line-height: 1.7; padding-left: 28px; margin: 12px 0; }
+  ul li { margin-bottom: 4px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+  .stat { text-align: center; }
+  .stat .num { font-size: 64px; font-weight: bold; color: var(--accent); line-height: 1; }
+  .stat .label { font-size: 18px; color: var(--ink2); margin-top: 6px; }
+  .img-slot {
+    background: repeating-linear-gradient(45deg, #f5ebd8, #f5ebd8 8px, #ede1c8 8px, #ede1c8 16px);
+    border: 1.5px dashed var(--ink3);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink3);
+    font-size: 16px;
+    text-align: center;
+    padding: 12px;
+  }
+  .img-slot img { max-width: 100%; max-height: 100%; border-radius: 8px; display: block; object-fit: contain; }
+  /* 手机截图槽位 — 9:16 竖屏比例，给手机端 UI 截图用 */
+  .img-slot.phone {
+    aspect-ratio: 9 / 16;
+    width: auto;
+    height: 100%;
+    max-height: 480px;
+    margin: 0 auto;
+    align-self: center;
+  }
+  .img-slot.phone img { width: 100%; height: 100%; object-fit: cover; }
+  /* 左文 + 右手机截图的两栏布局 */
+  .grid-with-phone {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 30px;
+    align-items: center;
+  }
+  /* 三栏并排手机截图（拍照流程用） */
+  .grid-three-phones {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    align-items: start;
+    justify-items: center;
+  }
+  .footer-meta {
+    position: absolute;
+    bottom: 18px; left: 72px; right: 72px;
+    display: flex; justify-content: space-between;
+    font-size: 14px; color: var(--ink3);
+  }
+  /* deco corner */
+  .corner {
+    position: absolute; top: -6px; right: -6px;
+    width: 70px; height: 70px;
+    background: var(--accent);
+    color: var(--paper);
+    transform: rotate(8deg);
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1.2; text-align: center;
+    padding: 6px;
+  }
+  /* nav */
+  .hud {
+    position: fixed; bottom: 14px; right: 18px;
+    background: var(--ink); color: var(--paper);
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+    z-index: 50;
+    border: 2px solid var(--ink);
+  }
+  .hint {
+    position: fixed; bottom: 14px; left: 18px;
+    color: var(--ink3); font-size: 13px;
+    z-index: 50;
+  }
+  /* code */
+  pre, code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 16px;
+  }
+  pre {
+    background: #1f1410;
+    color: #f5d97a;
+    padding: 16px 20px;
+    border-radius: 10px;
+    overflow: auto;
+    border: 2px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--accent);
+    line-height: 1.55;
+  }
+  pre .k { color: #ff9a6c; }
+  pre .s { color: #aed7a5; }
+  pre .c { color: #8a7560; font-style: italic; }
+  /* hero cover */
+  .cover { text-align: center; }
+  .cover h1 { font-size: 96px; letter-spacing: 4px; }
+  .cover .stamp {
+    display: inline-block;
+    border: 2.5px solid var(--accent);
+    color: var(--accent);
+    padding: 6px 18px;
+    border-radius: 6px;
+    transform: rotate(-3deg);
+    font-size: 20px;
+    margin-top: 12px;
+  }
+  /* timeline */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before {
+    content: ''; position: absolute; left: 8px; top: 8px; bottom: 8px;
+    width: 3px; background: var(--ink2); border-radius: 3px;
+  }
+  .timeline-item { position: relative; margin-bottom: 18px; }
+  .timeline-item::before {
+    content: ''; position: absolute; left: -28px; top: 8px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--ink);
+  }
+  /* arrow */
+  .arrow { font-size: 28px; color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- 01 · 封面 -->
+<section class="slide active">
+  <div class="slide-inner cover" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+    <div class="img-slot" style="width:240px;height:140px;margin-bottom:24px;">
+      <img src="images/01-cover.png" alt="封面图" onerror="this.style.display='none';this.parentElement.innerText='封面 AI 生图占位\n（image-prompts.md · 01）'" />
+    </div>
+    <h1>学不死 <span style="color:var(--accent)">lite</span></h1>
+    <p style="font-size:28px;color:var(--ink2);margin-top:6px;">一个 H5 备考陪跑工具</p>
+    <div class="stamp">4 天 · 从 0 到 1 · 一个人 · 一直在线</div>
+    <p class="subtle" style="margin-top:36px;">Lornax · 2026-05 · 备考 NPDP 期间</p>
+  </div>
+</section>
+
+<!-- 02 · 为什么做 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>为什么做这个？</h2>
+    <p class="subtle" style="margin-bottom:30px;">一个人备考的真痛点 ↓</p>
+    <div class="grid-3">
+      <div class="box pink">
+        <h3>📵 没人催</h3>
+        <p>一个人备考没人 push，今天看了没看全靠自觉</p>
+      </div>
+      <div class="box warm">
+        <h3>📖 看不进</h3>
+        <p>真题刷完答案过一遍，明天再做又错同一道</p>
+      </div>
+      <div class="box blue">
+        <h3>🤔 没策略</h3>
+        <p>错题积压，距考还剩 N 天，今天先做什么？</p>
+      </div>
+    </div>
+    <div class="box" style="margin-top:30px;background:var(--chip-cream);">
+      <p><b>想造个工具</b>，让自己更专心备考 NPDP — 顺手做成可分享给别人的产品。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 03 · v2 教训 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>上一代 v2 的教训</h2>
+    <div class="grid-2" style="gap:30px;">
+      <div>
+        <div class="box pink" style="margin-bottom:14px;">
+          <h3>🧨 reactCompiler 吃 88G</h3>
+          <p>v2 dashboard Next 16 + reactCompiler:true，两次拖死 macOS</p>
+        </div>
+        <div class="box pink" style="margin-bottom:14px;">
+          <h3>🦠 fork 来的复杂度</h3>
+          <p>从 we-assistant fork，带了一堆不需要的渠道 / skills / sqlite 路径污染</p>
+        </div>
+        <div class="box pink">
+          <h3>💥 iLink 22 秒 OOM</h3>
+          <p>VPS 4G 默认堆，启动后 22s 崩，根因到现在没查清</p>
+        </div>
+      </div>
+      <div>
+        <h3 style="color:var(--accent);">lite 的决定</h3>
+        <ul>
+          <li>从空项目起步，<b>不 fork 任何骨架</b></li>
+          <li>不带微信渠道、不开 React Compiler</li>
+          <li>dev 启动必带 <code>--max-old-space-size=2048</code> 当保险丝</li>
+          <li>每加一个依赖、每带一个模块都问"现在真的需要它吗"</li>
+        </ul>
+        <p style="margin-top:18px;color:var(--accent);"><b>"不抄复杂度"是开发的第一件事</b></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 · 三件事 -->
+<section class="slide">
+  <div class="slide-inner" style="display:flex;flex-direction:column;justify-content:center;">
+    <h2 style="text-align:center;margin-bottom:50px;">学不死 lite 只做三件事</h2>
+    <div class="grid-3" style="gap:36px;">
+      <div class="box thick" style="text-align:center;background:var(--chip-blue);">
+        <div style="font-size:64px;">📋</div>
+        <h3>档案</h3>
+        <p>每个考试一个档案<br/>填考试日期、每天投入</p>
+      </div>
+      <div class="box thick" style="text-align:center;background:var(--chip-green);">
+        <div style="font-size:64px;">📚</div>
+        <h3>题库</h3>
+        <p>4 种加题方式<br/>查重 / 错题本 / 教材 RAG</p>
+      </div>
+      <div class="box thick" style="text-align:center;background:var(--chip-pink);">
+        <div style="font-size:64px;">🤖</div>
+        <h3>AI 陪学</h3>
+        <p>知道你的真实状态<br/>给具体行动，不泛泛而谈</p>
+      </div>
+    </div>
+    <p class="subtle" style="text-align:center;margin-top:40px;">
+      <b>不做的</b>：社交 · 市场 · 付费 · 小程序 · UGC 审核 · 用户画像可视化
+    </p>
+  </div>
+</section>
+
+<!-- 05 · 开发原则 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>开发原则 · 四条铁律</h2>
+    <div class="grid-2" style="gap:24px;">
+      <div class="box thick">
+        <h3>🧭 约束先行</h3>
+        <p>新项目第一件事：写 CLAUDE.md。没有规范的工作空间不动手。</p>
+      </div>
+      <div class="box thick">
+        <h3>👀 可视化原型在前</h3>
+        <p>写代码前先做 HTML 原型给自己看，让产品决策发生在写代码前。</p>
+      </div>
+      <div class="box thick">
+        <h3>📐 Superpowers 流程</h3>
+        <p>brainstorming → design doc → plan → TDD → code review。不跳步。</p>
+      </div>
+      <div class="box thick">
+        <h3>🚧 红线必先问</h3>
+        <p>删文件 / 改 .env / git push / DB schema 变更 — 即使 auto-accept 也必须停下来确认。</p>
+      </div>
+    </div>
+    <p class="subtle" style="margin-top:24px;text-align:center;">
+      <b>"好产品的第一步是逻辑透明，功能完美其次"</b>
+    </p>
+  </div>
+</section>
+
+<!-- 06 · Tech Stack -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>Tech Stack · 全景</h2>
+    <div class="grid-2" style="gap:24px;">
+      <div>
+        <div class="box" style="margin-bottom:12px;background:var(--chip-blue);">
+          <h3>后端</h3>
+          <p>Hono · Drizzle ORM · PostgreSQL 15</p>
+        </div>
+        <div class="box" style="margin-bottom:12px;background:var(--chip-green);">
+          <h3>前端</h3>
+          <p>Vite · React 18 · TypeScript · Tailwind · React Router 6</p>
+        </div>
+        <div class="box" style="margin-bottom:12px;background:var(--chip-pink);">
+          <h3>AI</h3>
+          <p>Qwen-VL · Qwen-Max · DeepSeek-V3 · text-embedding-v3<br/>
+          通过 dashscope OpenAI 兼容端点统一调用</p>
+        </div>
+      </div>
+      <div>
+        <div class="box" style="margin-bottom:12px;background:var(--chip-cream);">
+          <h3>存储 / 部署</h3>
+          <p>腾讯云 COS（北京）· VPS 4 核 3.6G · systemd · Postgres.app（本地）</p>
+        </div>
+        <div class="box" style="margin-bottom:12px;">
+          <h3>测试</h3>
+          <p>vitest · 94 个集成测试 · 真 DB 不 mock</p>
+        </div>
+        <div class="box" style="background:var(--ink);color:var(--paper);">
+          <h3 style="color:var(--paper);">一句话</h3>
+          <p style="color:var(--paper);">所有 AI 走一个 key，所有数据走一个库，所有静态走一个 bucket。<br/>简单到能一个人维护。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 07 · 单 → 多用户演进 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>多用户演进 · Schema 早预留的回报</h2>
+    <div class="timeline">
+      <div class="timeline-item">
+        <h3>v0.0.1 — 单用户起步</h3>
+        <p class="subtle">SEED_USER_ID 写死，但 schema 所有表都加 <code>user_id</code> 字段并 NOT NULL</p>
+      </div>
+      <div class="timeline-item">
+        <h3>v0.0.7.0 — 引入 JWT 多用户</h3>
+        <p class="subtle">bcryptjs + hono/jwt HS256，老用户 lornax@local 给个默认密码 "change-me"</p>
+        <p class="subtle">数据迁移：0 行 — 因为 user_id 早就在那儿</p>
+      </div>
+      <div class="timeline-item">
+        <h3>v0.0.7.3 — 登录页 v2 高保真</h3>
+        <p class="subtle">基于参考 HTML 改造，霞鹜文楷 + 红影 brutal 风</p>
+      </div>
+    </div>
+    <div class="box warm" style="margin-top:20px;">
+      <p><b>punchline</b>：Schema 预留多花 0.5 小时，迁移省了 3 小时。<br/>"为可能的未来留 1 个字段"是值得的。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 08 · 视觉风格 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>视觉风格 · 让备考工具不冷</h2>
+    <div class="grid-with-phone">
+      <div>
+        <div class="box thick" style="background:var(--paper);">
+          <h3>调色板</h3>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <div style="width:40px;height:40px;background:#faf5ec;border:1.5px solid var(--ink);border-radius:6px;"></div>
+            <div style="width:40px;height:40px;background:#2a1f15;border-radius:6px;"></div>
+            <div style="width:40px;height:40px;background:#c14d2e;border-radius:6px;"></div>
+            <div style="width:40px;height:40px;background:#f5d97a;border-radius:6px;"></div>
+            <div style="width:40px;height:40px;background:#4a7eb8;border-radius:6px;"></div>
+            <div style="width:40px;height:40px;background:#6ba368;border-radius:6px;"></div>
+          </div>
+          <p class="subtle" style="margin-top:10px;">米纸 / 深棕 / 砖红 / 蜜黄 / 靛蓝 / 苔绿</p>
+        </div>
+        <div class="box thick" style="margin-top:14px;">
+          <h3>字体</h3>
+          <p style="font-family:'LXGW WenKai TC';font-size:28px;">霞鹜文楷 TC · LXGW WenKai</p>
+          <p class="subtle">中文优先选择，手写感强但可读性高</p>
+        </div>
+        <div class="box thick" style="margin-top:14px;">
+          <h3>阴影</h3>
+          <p>brutal-red: 3px 4px 0 #c14d2e（主按钮）</p>
+          <p>brutal-sm: 2px 2px 0 #2a1f15（卡片）</p>
+        </div>
+      </div>
+      <div class="img-slot phone">
+        <img src="images/08-login.png" alt="登录页截图" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\'color:var(--ink3)\'>登录页截图槽位<br/>9:16 手机截图<br/>截 /login</span>'" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 09 · 踩坑 1 PDF -->
+<section class="slide">
+  <div class="slide-inner">
+    <div class="corner">坑 #1</div>
+    <h2>PDF 同步阻塞 → 异步任务模型</h2>
+    <div class="grid-2" style="gap:30px;">
+      <div>
+        <div class="box pink" style="margin-bottom:14px;">
+          <h3>🚨 症状</h3>
+          <p>导入 100+ 题真题，单次 LLM 输出超 8K token 被截断</p>
+          <p>HTTP 网关 60s 超时直接断开</p>
+        </div>
+        <div class="box" style="background:var(--chip-cream);">
+          <h3>🔬 根因</h3>
+          <p>把所有题塞一次 LLM 调用太贪婪 — 既慢又脆</p>
+        </div>
+      </div>
+      <div>
+        <div class="box green">
+          <h3>🛠️ 解法</h3>
+          <ul style="font-size:18px;">
+            <li>按字符切 chunk（1200 字/批）</li>
+            <li>chunk 在 <b>题号边界</b>对齐，无字符丢失</li>
+            <li><code>setImmediate</code> 后台跑 worker</li>
+            <li>每个 chunk 做完就写库 → 进度可见</li>
+            <li>失败时已识别的 candidates 保留</li>
+            <li>1.5s 轮询，前端展示批次进度</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 · 踩坑 2 重启打断 -->
+<section class="slide">
+  <div class="slide-inner">
+    <div class="corner">坑 #2</div>
+    <h2>服务重启打断 worker → 断点续传</h2>
+    <div class="grid-2" style="gap:30px;">
+      <div>
+        <div class="box pink">
+          <h3>🚨 真实场景</h3>
+          <p>用户上传 PDF 跑到 chunk 14/41。<br/>我同时部署代码 → systemd restart。</p>
+          <p>worker 进程被 SIGTERM 杀掉。</p>
+          <p><code>selfHealOnBoot</code> 把 running job 标 <code>failed('server_restart')</code>。</p>
+          <p style="color:var(--accent);"><b>用户看到："AI 调用失败"</b></p>
+        </div>
+      </div>
+      <div>
+        <div class="box green">
+          <h3>🛠️ 修复（v0.0.8.2）</h3>
+          <ul style="font-size:18px;">
+            <li>把 <code>chunks</code> 数组写进 db (jsonb)</li>
+            <li>worker 从 <code>doneChunks</code> 读出起点</li>
+            <li><code>candidates</code> 持久化累积</li>
+            <li><code>selfHealOnBoot</code> 改成 <code>setImmediate</code> 续跑，不再标 failed</li>
+          </ul>
+        </div>
+        <div class="box warm" style="margin-top:10px;">
+          <p><b>启示</b>：进程内 in-memory map 是定时炸弹。<br/>所有 worker 状态必须能从 db 单方面恢复。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 · 踩坑 3 章节正则 -->
+<section class="slide">
+  <div class="slide-inner">
+    <div class="corner">坑 #3</div>
+    <h2>章节识别 147 个 · 真实是 7 个</h2>
+    <div class="grid-2" style="gap:30px;">
+      <div>
+        <div class="box pink">
+          <h3>🚨 用户反馈</h3>
+          <p>"我上传一本教材，怎么识别出来 147 章？"</p>
+        </div>
+        <div class="box warm" style="margin-top:14px;">
+          <h3>🔬 根因</h3>
+          <p>贪婪正则 <code>[^\n]{0,80}</code> 把"第 N 章"后面 80 字的正文都吞掉，每个 chunk 里都"匹配"出一个新章节。</p>
+        </div>
+      </div>
+      <div>
+        <div class="box green">
+          <h3>🛠️ 解法</h3>
+          <pre><span class="k">function</span> cleanChapterTitle(raw) {
+  <span class="c">// 只保留 "第 N 章" + ≤20 个中文字符</span>
+  <span class="k">const</span> m = raw.match(<span class="s">/第[一二三...]+章[^\n]{0,20}/</span>);
+  <span class="k">return</span> m?.[0]?.trim();
+}</pre>
+        </div>
+        <div class="stat" style="margin-top:10px;display:flex;justify-content:space-around;">
+          <div><div class="num" style="color:var(--accent);">147</div><div class="label">之前</div></div>
+          <div class="arrow" style="align-self:center;font-size:48px;">→</div>
+          <div><div class="num" style="color:var(--accent4);">7</div><div class="label">之后</div></div>
+        </div>
+        <p class="subtle" style="text-align:center;margin-top:6px;">还加了 reprocess 端点 — 不用重传，原地修复历史数据</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 · 踩坑 4 登录跳转 -->
+<section class="slide">
+  <div class="slide-inner">
+    <div class="corner">坑 #4</div>
+    <h2>登录后页面不跳转 · 异步 race</h2>
+    <div class="grid-2" style="gap:30px;">
+      <div>
+        <div class="box pink">
+          <h3>🚨 症状</h3>
+          <p>输入完账号密码点登录，页面不动。手动刷新一下才进去。</p>
+        </div>
+        <div class="box warm" style="margin-top:14px;">
+          <h3>🔬 根因</h3>
+          <p>setToken → navigate("/") → RequireAuth 看到 user 还是 null → 弹回登录页。<br/>token 已经写了，但 AuthContext 的 user 还没 refetch 完。</p>
+        </div>
+      </div>
+      <div>
+        <div class="box green">
+          <h3>🛠️ 解法</h3>
+          <pre><span class="k">async function</span> login() {
+  setToken(jwt);
+  <span class="k">await</span> refresh();   <span class="c">// 等 me() 拉完 user</span>
+  navigate(<span class="s">"/"</span>);     <span class="c">// 这时 RequireAuth 才不会弹</span>
+}</pre>
+        </div>
+        <div class="box" style="margin-top:14px;background:var(--chip-cream);">
+          <p><b>更深的启示</b>：<br/>"状态写了" ≠ "状态生效"。<br/>所有同步跳转前 await 异步 prerequisite。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 13 · AI Prompt 设计 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>AI Prompt 设计 · 状态注入 + 行为约束</h2>
+    <p class="subtle" style="margin-bottom:14px;">让 AI 拿真实数据说话，不靠瞎猜</p>
+    <pre><span class="k">function</span> buildStudySystemPrompt(profile, stats) {
+  <span class="k">return</span> [
+    <span class="s">`你是 ${profile.examName} 备考的 AI 陪学助手。`</span>,
+    <span class="s">`今天是 ${cnDate}。`</span>,
+    <span class="s">''</span>,
+    <span class="s">`下面是用户最新的学习状态：`</span>,
+    <span class="s">`- 距离考试：${stats.daysUntilExam} 天`</span>,
+    <span class="s">`- 题库总数：${stats.totalQuestions} 道 · 错题本：${stats.wrongbookCount}`</span>,
+    <span class="s">`- 近 7 天答题：${stats.attemptsLast7Days} 次`</span>,
+    <span class="s">`- 上次答题：${stats.daysSinceLastAttempt} 天前`</span>,
+    <span class="s">''</span>,
+    <span class="s">`原则：`</span>,
+    <span class="s">`- 控制 200 字内`</span>,
+    <span class="s">`- 给具体可执行建议 ("今天先刷错题本 10 道")`</span>,
+    <span class="s">`- 错题本 > 20 道 → 优先清积压`</span>,
+    <span class="s">`- 距考 < 30 天 → 冲刺策略；> 60 天 → 节奏稳定`</span>,
+  ].join(<span class="s">'\n'</span>);
+}</pre>
+    <p style="margin-top:14px;color:var(--accent);text-align:center;">
+      <b>对话即数据看板</b> — 这是我们这次的关键发明
+    </p>
+  </div>
+</section>
+
+<!-- 14 · 数据规模 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2 style="text-align:center;">4 天的产出</h2>
+    <div class="grid-4" style="margin-top:40px;">
+      <div class="stat box thick"><div class="num">4</div><div class="label">天</div></div>
+      <div class="stat box thick"><div class="num">9</div><div class="label">数据表</div></div>
+      <div class="stat box thick"><div class="num">94</div><div class="label">集成测试</div></div>
+      <div class="stat box thick"><div class="num">30</div><div class="label">版本号</div></div>
+    </div>
+    <div class="grid-4" style="margin-top:24px;">
+      <div class="stat box thick" style="background:var(--chip-blue);"><div class="num">4</div><div class="label">加题方式</div></div>
+      <div class="stat box thick" style="background:var(--chip-green);"><div class="num">4</div><div class="label">LLM 模型</div></div>
+      <div class="stat box thick" style="background:var(--chip-pink);"><div class="num">1</div><div class="label">人</div></div>
+      <div class="stat box thick" style="background:var(--chip-cream);"><div class="num">∞</div><div class="label">咖啡</div></div>
+    </div>
+    <p class="subtle" style="text-align:center;margin-top:30px;">
+      接下来 — 让我们看看用户能拿这玩意儿干什么
+    </p>
+  </div>
+</section>
+
+<!-- ===== PART 2 · 用户视角 ===== -->
+
+<!-- 15 · Part 2 封面 -->
+<section class="slide">
+  <div class="slide-inner cover" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+    <span class="tag accent">PART 2</span>
+    <h1 style="margin-top:24px;font-size:72px;">给一个人备考的你</h1>
+    <p style="font-size:28px;margin-top:18px;color:var(--ink2);max-width:720px;">
+      把资料喂进来 · 系统帮你刷、催、复盘<br/>最后拿结果
+    </p>
+    <div class="img-slot" style="width:200px;height:120px;margin-top:32px;">
+      <img src="images/15-hero.png" alt="" onerror="this.style.display='none';this.parentElement.innerText='Part 2 封面 AI 生图占位'" />
+    </div>
+  </div>
+</section>
+
+<!-- 16 · 谁该用 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>谁该用？</h2>
+    <p class="subtle" style="margin-bottom:30px;">你只要符合一个就行 ↓</p>
+    <div class="grid-3" style="gap:24px;">
+      <div class="box thick" style="background:var(--chip-blue);">
+        <h3>📚 有真题</h3>
+        <p>手里囤了一堆历年真题 PDF / 拍照 / 自己整理的题目，但没用起来</p>
+      </div>
+      <div class="box thick" style="background:var(--chip-green);">
+        <h3>📖 有教材</h3>
+        <p>教材厚厚一本，问题不知道去哪页找答案</p>
+      </div>
+      <div class="box thick" style="background:var(--chip-pink);">
+        <h3>🎯 想靠自己</h3>
+        <p>不想报班 / 报班贵 / 想自学但缺一个不掉链子的搭子</p>
+      </div>
+    </div>
+    <div class="box" style="margin-top:30px;background:var(--chip-cream);">
+      <p style="text-align:center;font-size:24px;"><b>NPDP · CPA · 法考 · PMP · 软考 · 考研 · 公考</b> — 任何选择题为主的考试都能用</p>
+    </div>
+  </div>
+</section>
+
+<!-- 17 · 核心闭环 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>核心闭环 · 一个人也能跑完</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:50px;">
+      <div class="box thick" style="text-align:center;padding:18px 28px;background:var(--chip-blue);">
+        <div style="font-size:48px;">📋</div>
+        <h3>建档</h3>
+        <p class="subtle">考试名 + 日期</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="box thick" style="text-align:center;padding:18px 28px;background:var(--chip-green);">
+        <div style="font-size:48px;">📚</div>
+        <h3>加题</h3>
+        <p class="subtle">4 种入口</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="box thick" style="text-align:center;padding:18px 28px;background:var(--chip-pink);">
+        <div style="font-size:48px;">✏️</div>
+        <h3>刷题</h3>
+        <p class="subtle">错题自动收</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="box thick" style="text-align:center;padding:18px 28px;background:var(--chip-cream);">
+        <div style="font-size:48px;">🤖</div>
+        <h3>复盘</h3>
+        <p class="subtle">AI 陪聊</p>
+      </div>
+    </div>
+    <p style="text-align:center;margin-top:60px;font-size:26px;color:var(--accent);">
+      <b>AI 自始至终陪着</b> — 拍照识题、PDF 整理、教材引用、错题分析
+    </p>
+  </div>
+</section>
+
+<!-- 18 · 4 种加题 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>4 种加题方式</h2>
+    <div class="grid-with-phone" style="margin-top:14px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="box thick" style="background:var(--chip-pink);">
+          <div style="font-size:42px;text-align:center;">📷</div>
+          <h3 style="text-align:center;">拍照识题</h3>
+          <p class="subtle">真题书直接拍 · AI 识别 · 编辑确认</p>
+        </div>
+        <div class="box thick" style="background:var(--chip-blue);">
+          <div style="font-size:42px;text-align:center;">✍️</div>
+          <h3 style="text-align:center;">手输</h3>
+          <p class="subtle">想自己整理就一道一道敲</p>
+        </div>
+        <div class="box thick" style="background:var(--chip-green);">
+          <div style="font-size:42px;text-align:center;">📁</div>
+          <h3 style="text-align:center;">PDF 导入</h3>
+          <p class="subtle">真题 PDF 一次传 · AI 切批后台解析</p>
+        </div>
+        <div class="box thick" style="background:var(--chip-cream);">
+          <div style="font-size:42px;text-align:center;">🎲</div>
+          <h3 style="text-align:center;">AI 出题</h3>
+          <p class="subtle">给知识点 · AI 出新题</p>
+        </div>
+      </div>
+      <div class="img-slot phone">
+        <img src="images/18-add-menu.png" alt="加题菜单" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\'color:var(--ink3)\'>加题菜单<br/>9:16 手机截图</span>'" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 19 · 拍照识题特写 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>拍照识题 · 真题书秒变题库</h2>
+    <div class="grid-three-phones" style="margin-top:14px;">
+      <div style="text-align:center;">
+        <div class="img-slot phone" style="max-height:420px;">
+          <img src="images/19-ocr-1.png" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\'color:var(--ink3)\'>1️⃣ 拍照<br/>9:16 截图</span>'" />
+        </div>
+        <p style="margin-top:10px;"><b>1️⃣ 拍照</b><br/><span class="subtle">手机直接调用相机</span></p>
+      </div>
+      <div style="text-align:center;">
+        <div class="img-slot phone" style="max-height:420px;">
+          <img src="images/19-ocr-2.png" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\'color:var(--ink3)\'>2️⃣ AI 识别<br/>9:16 截图</span>'" />
+        </div>
+        <p style="margin-top:10px;"><b>2️⃣ AI 识别</b><br/><span class="subtle">qwen-vl-max 看图出 JSON</span></p>
+      </div>
+      <div style="text-align:center;">
+        <div class="img-slot phone" style="max-height:420px;">
+          <img src="images/19-ocr-3.png" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\'color:var(--ink3)\'>3️⃣ 编辑确认<br/>9:16 截图</span>'" />
+        </div>
+        <p style="margin-top:10px;"><b>3️⃣ 编辑确认</b><br/><span class="subtle">没识别出答案能让 AI 解</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 20 · PDF 异步 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>PDF 异步导入 · 一次传完不丢</h2>
+    <div class="grid-with-phone" style="margin-top:14px;">
+      <div>
+        <div class="box thick" style="background:var(--chip-green);">
+          <h3>✅ 100+ 题一次传完</h3>
+          <p>按 chunk 分批解析，进度条实时更新</p>
+        </div>
+        <div class="box thick" style="margin-top:12px;background:var(--chip-blue);">
+          <h3>✅ 离开页面不丢</h3>
+          <p>任务在后台跑，关浏览器回来还能看进度</p>
+        </div>
+        <div class="box thick" style="margin-top:12px;background:var(--chip-pink);">
+          <h3>✅ 服务重启自动续</h3>
+          <p>v0.0.8.2 起 — 进程崩了也能从断点续传，不丢已识别的题</p>
+        </div>
+      </div>
+      <div class="img-slot phone">
+        <img src="images/20-pdf.png" alt="PDF 进度页" onerror="this.style.display='none';this.parentElement.innerText='PDF 异步导入进度页截图'" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 21 · 题库与查重 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>题库管理 · 查重 · 错题本</h2>
+    <div class="grid-with-phone">
+      <div>
+        <div class="box pink" style="margin-bottom:14px;">
+          <h3>🔍 查重提醒</h3>
+          <p>每道新题算 1024 维 embedding，与同档案题做余弦相似度</p>
+          <p>≥ 0.85 弹出新旧对比，3 选 1：保留新 / 保留旧 / 都留</p>
+        </div>
+        <div class="box green" style="margin-bottom:14px;">
+          <h3>❌ 错题本自动归档</h3>
+          <p>答错的题自动进错题本，连续答对 3 次自动移除</p>
+          <p>也支持手动标"未掌握"</p>
+        </div>
+        <div class="box blue">
+          <h3>🛠️ 批量管理</h3>
+          <p>多选 · 批量删 · 一键清空 · 题目克隆</p>
+        </div>
+      </div>
+      <div class="img-slot phone">
+        <img src="images/21-library.png" alt="题库管理" onerror="this.style.display='none';this.parentElement.innerText='题库管理页截图'" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 22 · AI 陪学 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>AI 陪学 · 知道你的真实状态</h2>
+    <div class="grid-with-phone">
+      <div>
+        <h3>不是泛泛而谈，是看着真实数据回答</h3>
+        <ul>
+          <li>"你错题本有 28 道积压了"</li>
+          <li>"距考还剩 23 天，建议先冲错题"</li>
+          <li>"上次刷题是 3 天前，今天先来 10 道暖暖"</li>
+          <li>"已经连续 5 天答对率 80%+ 了，节奏不错"</li>
+        </ul>
+        <div class="box warm" style="margin-top:18px;">
+          <p>核心 prompt 把<b>真实学习状态</b>注入 system 提示，<br/>给 AI 5 条硬约束（字数 / 决策树 / 口吻），<br/>不让它说"加油哦"这种废话。</p>
+        </div>
+      </div>
+      <div class="img-slot phone">
+        <img src="images/22-coach.png" alt="AI 陪学对话" onerror="this.style.display='none';this.parentElement.innerText='AI 陪学对话截图'" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 23 · 教材 RAG -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>教材 RAG · 答案带页码</h2>
+    <div class="grid-with-phone">
+      <div>
+        <div class="box thick" style="background:var(--chip-cream);">
+          <h3>📤 上传 PDF 教材</h3>
+          <p>≤ 50 MB / 一个档案多本教材都行</p>
+          <p>后台异步解析 · 按章节切片 · 批量 embedding</p>
+        </div>
+        <div class="box thick" style="margin-top:14px;background:var(--chip-blue);">
+          <h3>🎯 AI 回答自动引用</h3>
+          <p>问问题 / 出新题 / 错题分析 — AI 全程带上：</p>
+          <p style="font-family:monospace;color:var(--accent);font-size:20px;margin-top:6px;">「第 3 章 · 第 47 页」</p>
+        </div>
+        <div class="box thick" style="margin-top:14px;background:var(--chip-green);">
+          <h3>🧠 不止找答案，是找出处</h3>
+          <p>没人想被 AI 编造概念。所有引用都来自你上传的教材，可追溯。</p>
+        </div>
+      </div>
+      <div class="img-slot phone">
+        <img src="images/23-rag.png" alt="教材引用截图" onerror="this.style.display='none';this.parentElement.innerText='教材引用回答截图'" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 24 · 试试 -->
+<section class="slide">
+  <div class="slide-inner" style="text-align:center;">
+    <h2 style="text-align:center;">现在就能试</h2>
+    <div class="grid-2" style="gap:40px;margin-top:30px;align-items:center;">
+      <div style="text-align:left;">
+        <div class="box thick" style="margin-bottom:18px;">
+          <h3>🌐 网址</h3>
+          <p style="font-family:monospace;font-size:22px;color:var(--accent);">http://82.156.139.33:3001</p>
+          <p class="subtle">手机浏览器直接打开（电脑也行）</p>
+        </div>
+        <div class="box thick" style="background:var(--chip-cream);">
+          <h3>🔑 试用账号</h3>
+          <p>账号：<code>lornax@local</code></p>
+          <p>密码：<code>123123</code></p>
+          <p class="subtle">或者点"注册"自己开一个</p>
+        </div>
+      </div>
+      <div class="img-slot" style="height:340px;">
+        <img src="images/24-qrcode.png" alt="二维码" onerror="this.style.display='none';this.parentElement.innerText='二维码占位\n（用 qrencode 或 cli.im 生成 URL 二维码）'" />
+      </div>
+    </div>
+    <p class="subtle" style="margin-top:20px;">⚠️ 当前 HTTP 明文，仅作 demo 用；下一版上 HTTPS</p>
+  </div>
+</section>
+
+<!-- 25 · 下一步规划 -->
+<section class="slide">
+  <div class="slide-inner">
+    <h2>下一步 · 三阶段规划</h2>
+    <div class="grid-3" style="gap:20px;margin-top:14px;">
+      <div class="box thick" style="background:var(--chip-green);">
+        <h3>Stage 1 · 现在 ✅</h3>
+        <p>MVP 跑通：建档 + 4 种加题 + 刷题闭环 + AI 陪学 + 教材 RAG + 多用户</p>
+        <p class="subtle" style="margin-top:8px;">7 条 P1 验收全部达成</p>
+      </div>
+      <div class="box thick" style="background:var(--chip-cream);">
+        <h3>Stage 2 · 下期</h3>
+        <ul style="font-size:18px;">
+          <li>数据备份 + HTTPS</li>
+          <li>学习时长 / 题数 进度条</li>
+          <li>本周节奏热力图</li>
+          <li>教材也支持断点续传</li>
+        </ul>
+      </div>
+      <div class="box thick" style="background:var(--chip-blue);">
+        <h3>Stage 3 · 远期</h3>
+        <ul style="font-size:18px;">
+          <li>交易市场 + 社交广场</li>
+          <li>专家级 AI 教练（按考试垂直化）</li>
+          <li>NPDP / CPA / 法考 / 考研 等</li>
+          <li>移动端 Taro 小程序</li>
+        </ul>
+      </div>
+    </div>
+    <div class="box" style="margin-top:20px;background:var(--accent);color:var(--paper);">
+      <p style="color:var(--paper);"><b>"专家级 AI 教练"是远期重点</b> — 不止做 prompt，做考试垂直化的真知识储备</p>
+    </div>
+  </div>
+</section>
+
+<!-- 26 · 致谢 / 一起来 -->
+<section class="slide">
+  <div class="slide-inner cover" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+    <h1 style="font-size:80px;">一起来 ☕️</h1>
+    <p style="font-size:28px;margin-top:24px;color:var(--ink2);max-width:760px;">
+      你的反馈是 <span style="color:var(--accent);font-family:monospace;">v0.0.8.3</span> 的需求。<br/>
+      用一阵子，把卡到你的地方告诉我，我们一起把它磨成你顺手的工具。
+    </p>
+    <div style="margin-top:36px;display:flex;gap:18px;flex-wrap:wrap;justify-content:center;">
+      <span class="tag blue">微信群 / 反馈渠道</span>
+      <span class="tag green">GitHub: Lornax/learn-or-die-lite</span>
+      <span class="tag pink">2026-05</span>
+    </div>
+    <p class="subtle" style="margin-top:60px;">
+      Made with ☕ by Lornax · 备考路上不孤单
+    </p>
+  </div>
+</section>
+
+</div>
+
+<div class="hud"><span id="counter">1 / 26</span></div>
+<div class="hint">← / → 翻页 · Home 回首 · End 末页 · F 全屏</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const counter = document.getElementById('counter');
+  let cur = 0;
+  function go(i) {
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, idx) => s.classList.toggle('active', idx === cur));
+    counter.textContent = `${cur + 1} / ${slides.length}`;
+    location.hash = `s${cur + 1}`;
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(cur + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(cur - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+    else if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+  // 点击/触摸翻页
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.hud, .hint, a, button')) return;
+    const x = e.clientX;
+    const w = window.innerWidth;
+    if (x < w / 3) go(cur - 1);
+    else if (x > w * 2 / 3) go(cur + 1);
+  });
+  // 启动时尝试从 hash 恢复
+  const m = location.hash.match(/^#s(\d+)$/);
+  if (m) go(parseInt(m[1], 10) - 1);
+</script>
+</body>
+</html>
