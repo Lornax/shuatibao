@@ -92,7 +92,12 @@ export function QuestionFromPDF() {
     try {
       const res = await api.createPdfImportJob(pid, file);
       if (res.ok) {
-        nav(`/profiles/${pid}/import-jobs/${res.jobId}`, { replace: true });
+        // 命中内容缓存: 直接跳 review (candidates 已就绪, 0 LLM 调用)
+        if (res.fromCache) {
+          nav(`/profiles/${pid}/import-jobs/${res.jobId}/review`, { replace: true });
+        } else {
+          nav(`/profiles/${pid}/import-jobs/${res.jobId}`, { replace: true });
+        }
       } else if (res.conflict) {
         setError('当前已有一份 PDF 在解析中, 先去看它');
         await refreshJobs();

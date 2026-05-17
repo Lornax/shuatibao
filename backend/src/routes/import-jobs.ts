@@ -1,6 +1,7 @@
+import { createHash } from 'node:crypto';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
 import { chunkPdfText } from '../lib/pdf-chunker.js';
@@ -52,6 +53,65 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
 
   const buf = Buffer.from(await file.arrayBuffer());
 
+  // 内容 hash: 同 userId + 同 hash + completed 的旧 job 直接复用 candidates, 不调 LLM
+  const contentHash = createHash('sha256').update(buf).digest('hex');
+  const [cached] = await db
+    .select()
+    .from(schema.importJobs)
+    .where(
+      and(
+        eq(schema.importJobs.userId, userId),
+        eq(schema.importJobs.contentHash, contentHash),
+        eq(schema.importJobs.status, 'completed'),
+        isNotNull(schema.importJobs.contentHash),
+      ),
+    )
+    .orderBy(desc(schema.importJobs.createdAt))
+    .limit(1);
+  if (cached && Array.isArray(cached.candidates) && cached.candidates.length > 0) {
+    // 命中: 复制 candidates 到本档案的新 job, 状态直接 completed
+    let cosUrl: string | null = null;
+    if (isCosEnabled()) {
+      try {
+        cosUrl = await uploadPdfToCOS(buf, file.name);
+      } catch (e) {
+        console.error('[import-jobs] COS upload failed (continuing):', e);
+      }
+    }
+    const now = new Date();
+    const [job] = await db
+      .insert(schema.importJobs)
+      .values({
+        profileId: pid,
+        userId,
+        kind: 'pdf',
+        status: 'completed',
+        filename: file.name,
+        totalChunks: cached.totalChunks,
+        doneChunks: cached.totalChunks,
+        fileSize: file.size,
+        contentHash,
+        chunks: [] as string[], // 不需要重新跑, 不存 chunks 省空间
+        candidates: cached.candidates,
+        cosUrl,
+        startedAt: now,
+        finishedAt: now,
+      })
+      .returning({ id: schema.importJobs.id });
+    console.log(
+      `[import-jobs ${job.id.slice(0, 8)}] cache hit: hash=${contentHash.slice(0, 8)} reused ${cached.candidates.length} candidates from ${cached.id.slice(0, 8)}`,
+    );
+    return c.json(
+      {
+        jobId: job.id,
+        totalChunks: cached.totalChunks,
+        fromCache: true,
+        candidatesCount: cached.candidates.length,
+      },
+      201,
+    );
+  }
+
   let text = '';
   try {
     const result = await pdfParse(buf);
@@ -64,7 +124,7 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
   const chunks = chunkPdfText(text);
   if (chunks.length === 0) return c.json({ error: 'pdf_no_text' }, 400);
   console.log(
-    `[import-jobs] new pdf: ${file.name} · ${(file.size / 1024 / 1024).toFixed(1)}MB · ${text.length} chars → ${chunks.length} chunks`,
+    `[import-jobs] new pdf: ${file.name} · ${(file.size / 1024 / 1024).toFixed(1)}MB · hash=${contentHash.slice(0, 8)} · ${text.length} chars → ${chunks.length} chunks`,
   );
 
   // upload original PDF to COS so the user can download/preview later.
@@ -91,6 +151,7 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
       totalChunks: chunks.length,
       doneChunks: 0,
       fileSize: file.size,
+      contentHash,
       chunks,
       candidates: [],
       cosUrl,

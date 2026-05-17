@@ -53,6 +53,8 @@ const promptSchema = z.object({
   difficulty: z.number().int().min(1).max(5).default(2),
   chapter: z.string().max(100).optional(),
   topics: z.string().max(200).optional(),
+  // 批量出题时累积已生成的题干, 让 LLM 避开重复
+  excludeStems: z.array(z.string().max(500)).max(20).optional(),
 });
 
 router.post('/profiles/:pid/parse/prompt', async (c) => {
@@ -96,6 +98,7 @@ router.post('/profiles/:pid/parse/prompt', async (c) => {
       parsed.data.chapter,
       parsed.data.topics,
       textbookReference,
+      parsed.data.excludeStems,
     );
     return c.json({ candidate, source: 'ai_gen' });
   } catch (e) {

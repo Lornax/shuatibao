@@ -73,11 +73,17 @@ export function QuestionFromPrompt() {
     };
   }
 
-  async function runOne(): Promise<{ ok: true } | { ok: false; msg: string }> {
+  async function runOne(
+    excludeStems: string[],
+  ): Promise<{ ok: true; stem: string } | { ok: false; msg: string }> {
     const payload = buildPayload();
     if ('error' in payload) return { ok: false, msg: payload.error };
     try {
-      const { candidate } = await api.parsePrompt(pid!, { ...payload, difficulty });
+      const { candidate } = await api.parsePrompt(pid!, {
+        ...payload,
+        difficulty,
+        excludeStems: excludeStems.length > 0 ? excludeStems : undefined,
+      });
       const tags = chapter.trim()
         ? [...(candidate.tags || []), CHAPTER_PREFIX + chapter.trim()]
         : candidate.tags || [];
@@ -90,7 +96,7 @@ export function QuestionFromPrompt() {
         difficulty: candidate.difficulty,
         source: 'ai_gen',
       });
-      return { ok: true };
+      return { ok: true, stem: candidate.stem };
     } catch (e) {
       return { ok: false, msg: String(e) };
     }
@@ -124,11 +130,14 @@ export function QuestionFromPrompt() {
 
     let ok = 0;
     let failed = 0;
+    const generatedStems: string[] = [];
     for (let i = 0; i < count; i++) {
       if (cancelRef.current) break;
-      const r = await runOne();
-      if (r.ok) ok++;
-      else {
+      const r = await runOne(generatedStems);
+      if (r.ok) {
+        ok++;
+        generatedStems.push(r.stem);
+      } else {
         failed++;
         console.error('[batch-gen]', r.msg);
       }

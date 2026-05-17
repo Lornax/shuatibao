@@ -46,13 +46,25 @@ export async function generateQuestionFromPrompt(
   chapter?: string,
   topics?: string,
   textbookReference?: string,
+  excludeStems?: string[],
 ): Promise<CandidateQuestion> {
-  const userMsg = [
+  const userMsgParts = [
     `知识点：${knowledge}`,
     chapter ? `教材章节：${chapter}` : '',
     topics ? `考点关键词：${topics}` : '',
     `难度：${difficulty}`,
-  ].filter(Boolean).join('\n');
+  ].filter(Boolean);
+  // 批量出题去重: 把已出的题干列出来, 要求 LLM 出新题角度/考点不重复
+  if (excludeStems && excludeStems.length > 0) {
+    userMsgParts.push(
+      '',
+      '⚠️ 本次是批量出题, 下面这些题已经出过了, 请换不同角度/考点出新题, 不要重复 (题干/选项不要类似):',
+      ...excludeStems.map((s, i) => `${i + 1}. ${s.slice(0, 200)}`),
+      '',
+      '请挑一个不同的子知识点出题, 题干和选项跟上面任何一道都不一样。',
+    );
+  }
+  const userMsg = userMsgParts.join('\n');
   const systemPrompt = textbookReference
     ? `${PROMPT_GEN_PROMPT}\n\n${textbookReference}`
     : PROMPT_GEN_PROMPT;
@@ -62,7 +74,8 @@ export async function generateQuestionFromPrompt(
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMsg },
     ],
-    temperature: 0.7,
+    // 批量出题时升温度增加多样性
+    temperature: excludeStems && excludeStems.length > 0 ? 0.9 : 0.7,
   });
   const raw = r.choices[0]?.message?.content ?? '';
   return parseCandidateOrThrow(raw);

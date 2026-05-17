@@ -272,7 +272,14 @@ export const api = {
       body: fd,
     }).then(async (res) => {
       const body = await res.json().catch(() => ({}));
-      if (res.status === 201) return { ok: true as const, jobId: body.jobId as string, totalChunks: body.totalChunks as number };
+      if (res.status === 201)
+        return {
+          ok: true as const,
+          jobId: body.jobId as string,
+          totalChunks: body.totalChunks as number,
+          fromCache: !!body.fromCache,
+          candidatesCount: (body.candidatesCount as number) ?? 0,
+        };
       if (res.status === 409) return { ok: false as const, conflict: true as const, existingJobId: body.jobId as string };
       throw new Error(`createPdfImportJob ${res.status}: ${JSON.stringify(body)}`);
     });
@@ -324,7 +331,13 @@ export const api = {
 
   parsePrompt: (
     pid: string,
-    input: { knowledge: string; difficulty: number; chapter?: string; topics?: string },
+    input: {
+      knowledge: string;
+      difficulty: number;
+      chapter?: string;
+      topics?: string;
+      excludeStems?: string[];
+    },
   ) =>
     request<{ candidate: CandidateQuestion; source: 'ai_gen' }>(
       `/profiles/${pid}/parse/prompt`,

@@ -61,7 +61,7 @@ export function ImportJobProgress() {
 
   if (!job) {
     return (
-      <Layout title="PDF 解析中" back={() => nav(`/profiles/${pid}`)}>
+      <Layout title="PDF 解析中" back={() => nav(`/profiles/${pid}/questions/from-pdf`)}>
         <Box variant="dashed" className="p-3">
           <p className="font-cn text-sm text-ink-2">{pollError ?? '加载导入任务...'}</p>
         </Box>
@@ -80,7 +80,7 @@ export function ImportJobProgress() {
   const eta = computeEtaText(job);
 
   return (
-    <Layout title={titleByStatus[job.status]} back={() => nav(`/profiles/${pid}`)}>
+    <Layout title={titleByStatus[job.status]} back={() => nav(`/profiles/${pid}/questions/from-pdf`)}>
       <div className="space-y-3">
         <Box variant="soft" className="p-3 flex items-center gap-2 bg-chip-cream">
           <span className="border border-ink rounded px-1.5 py-0.5 text-[10px] font-handBold leading-none bg-white">
@@ -201,11 +201,19 @@ export function ImportJobProgress() {
 
 function computeEtaText(job: ImportJob): string | null {
   if (job.status !== 'running' && job.status !== 'pending') return null;
-  if (!job.startedAt || job.doneChunks <= 0) return null;
-  const elapsed = Date.now() - new Date(job.startedAt).getTime();
-  const perChunk = elapsed / job.doneChunks;
-  const remaining = perChunk * Math.max(0, job.totalChunks - job.doneChunks);
-  if (remaining <= 0) return null;
+  const remainingChunks = Math.max(0, job.totalChunks - job.doneChunks);
+  if (remainingChunks <= 0) return null;
+
+  // 墙钟时间 / doneChunks 在服务重启/续传场景下会被拉得极大 (几小时跨度,
+  // 真实 chunk 时间 15-30s). 加 cap: perChunk 限定在 10-60 秒之间.
+  let perChunk = 25 * 1000; // 默认假设 25s/chunk
+  if (job.startedAt && job.doneChunks > 0) {
+    const elapsed = Date.now() - new Date(job.startedAt).getTime();
+    const wallPerChunk = elapsed / job.doneChunks;
+    perChunk = Math.min(Math.max(wallPerChunk, 10 * 1000), 60 * 1000);
+  }
+
+  const remaining = perChunk * remainingChunks;
   const secs = Math.round(remaining / 1000);
   if (secs < 60) return `${secs} 秒`;
   const mins = Math.floor(secs / 60);
