@@ -45,6 +45,10 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
     );
   }
 
+  // 早停: 跑完前 N 个 chunk 后, 如果 0 candidates, 判定不是题目 PDF, 立刻 abort
+  // 节省 token + 给用户清晰反馈
+  const EARLY_ABORT_AFTER_CHUNKS = 3;
+
   try {
     for (let i = startIndex; i < chunks.length; i++) {
       const chunk = chunks[i];
@@ -62,6 +66,22 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
           candidates: candidates as unknown[],
         })
         .where(eq(schema.importJobs.id, jobId));
+
+      // 仅首次跑时检查 (resume 时 startIndex > 0, 已知前面有 candidates 或用户已确认继续)
+      if (startIndex === 0 && i + 1 >= EARLY_ABORT_AFTER_CHUNKS && candidates.length === 0) {
+        console.log(
+          `[import-jobs ${jobId.slice(0, 8)}] early abort: ${i + 1} chunks 0 candidates, not_a_quiz_pdf`,
+        );
+        await db
+          .update(schema.importJobs)
+          .set({
+            status: 'failed',
+            error: 'not_a_quiz_pdf',
+            finishedAt: new Date(),
+          })
+          .where(eq(schema.importJobs.id, jobId));
+        return;
+      }
     }
     await db
       .update(schema.importJobs)
