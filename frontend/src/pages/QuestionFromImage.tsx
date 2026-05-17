@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { Box } from '../components/Box';
 import { Button } from '../components/Button';
+import { Chip } from '../components/Chip';
 import { Layout } from '../components/Layout';
 import { StagedLoader } from '../components/StagedLoader';
 import { cropImageToBlob } from '../lib/cropImage';
@@ -23,7 +24,22 @@ export function QuestionFromImage() {
   // crop state
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [aspect, setAspect] = useState(4 / 3);
   const [pixelCrop, setPixelCrop] = useState<Area | null>(null);
+
+  const ASPECT_PRESETS: { label: string; value: number }[] = [
+    { label: '1:1', value: 1 },
+    { label: '4:3', value: 4 / 3 },
+    { label: '3:4', value: 3 / 4 },
+    { label: '16:9', value: 16 / 9 },
+    { label: '9:16', value: 9 / 16 },
+  ];
+
+  function switchAspect(v: number) {
+    setAspect(v);
+    setCrop({ x: 0, y: 0 });
+    setPixelCrop(null);
+  }
 
   const onCropComplete = useCallback((_: Area, pixels: Area) => {
     setPixelCrop(pixels);
@@ -145,6 +161,7 @@ export function QuestionFromImage() {
                 image={stage.src}
                 crop={crop}
                 zoom={zoom}
+                aspect={aspect}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
                 onCropComplete={onCropComplete}
@@ -153,6 +170,18 @@ export function QuestionFromImage() {
                 maxZoom={4}
                 restrictPosition={false}
               />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-cn text-xs text-ink-2 shrink-0">比例</span>
+              {ASPECT_PRESETS.map((p) => (
+                <Chip
+                  key={p.label}
+                  active={Math.abs(aspect - p.value) < 0.01}
+                  onClick={() => switchAspect(p.value)}
+                >
+                  {p.label}
+                </Chip>
+              ))}
             </div>
             <div className="flex items-center gap-2">
               <span className="font-cn text-xs text-ink-2 shrink-0">缩放</span>
