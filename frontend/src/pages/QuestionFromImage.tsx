@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
-import Cropper, { type Area } from 'react-easy-crop';
+import { useRef, useState } from 'react';
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { Box } from '../components/Box';
@@ -14,6 +15,16 @@ type Stage =
   | { kind: 'cropping'; src: string; originalName: string; originalType: string }
   | { kind: 'ready'; file: File; previewUrl: string };
 
+// 比例预设: undefined = 自由拖拽 (无约束)
+const ASPECT_PRESETS: { label: string; value: number | undefined }[] = [
+  { label: '🤚 自由', value: undefined },
+  { label: '1:1', value: 1 },
+  { label: '4:3', value: 4 / 3 },
+  { label: '3:4', value: 3 / 4 },
+  { label: '16:9', value: 16 / 9 },
+  { label: '9:16', value: 9 / 16 },
+];
+
 export function QuestionFromImage() {
   const { pid } = useParams<{ pid: string }>();
   const nav = useNavigate();
@@ -21,29 +32,11 @@ export function QuestionFromImage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // crop state
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [aspect, setAspect] = useState(4 / 3);
-  const [pixelCrop, setPixelCrop] = useState<Area | null>(null);
-
-  const ASPECT_PRESETS: { label: string; value: number }[] = [
-    { label: '1:1', value: 1 },
-    { label: '4:3', value: 4 / 3 },
-    { label: '3:4', value: 3 / 4 },
-    { label: '16:9', value: 16 / 9 },
-    { label: '9:16', value: 9 / 16 },
-  ];
-
-  function switchAspect(v: number) {
-    setAspect(v);
-    setCrop({ x: 0, y: 0 });
-    setPixelCrop(null);
-  }
-
-  const onCropComplete = useCallback((_: Area, pixels: Area) => {
-    setPixelCrop(pixels);
-  }, []);
+  // crop state - 用 react-image-crop, 默认自由模式
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const [aspect, setAspect] = useState<number | undefined>(undefined);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -53,15 +46,35 @@ export function QuestionFromImage() {
     setError(null);
     const url = URL.createObjectURL(f);
     setStage({ kind: 'cropping', src: url, originalName: f.name, originalType: f.type });
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
-    setPixelCrop(null);
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+  }
+
+  function switchAspect(v: number | undefined) {
+    setAspect(v);
+    // 切换比例时清空当前 crop, 让用户从头框
+    setCrop(undefined);
+    setCompletedCrop(undefined);
   }
 
   async function confirmCrop() {
-    if (stage.kind !== 'cropping' || !pixelCrop) return;
+    if (stage.kind !== 'cropping' || !completedCrop || !imgRef.current) return;
     setError(null);
     try {
+      // react-image-crop 给的是显示尺寸下的像素坐标, 换算到原图自然尺寸
+      const img = imgRef.current;
+      const scaleX = img.naturalWidth / img.width;
+      const scaleY = img.naturalHeight / img.height;
+      const pixelCrop = {
+        x: completedCrop.x * scaleX,
+        y: completedCrop.y * scaleY,
+        width: completedCrop.width * scaleX,
+        height: completedCrop.height * scaleY,
+      };
+      if (pixelCrop.width < 20 || pixelCrop.height < 20) {
+        setError('裁剪区域太小, 再框大一点');
+        return;
+      }
       const blob = await cropImageToBlob(stage.src, pixelCrop, 'image/jpeg', 0.92);
       const file = new File([blob], stage.originalName.replace(/\.[^.]+$/, '') + '-crop.jpg', {
         type: 'image/jpeg',
@@ -79,7 +92,6 @@ export function QuestionFromImage() {
 
   function skipCrop() {
     if (stage.kind !== 'cropping') return;
-    // turn the original blob URL back into a File via fetch
     fetch(stage.src)
       .then((r) => r.blob())
       .then((blob) => {
@@ -151,49 +163,37 @@ export function QuestionFromImage() {
         {stage.kind === 'cropping' && (
           <>
             <p className="font-cn text-sm text-ink-2">
-              拖动 / 缩放，把<b>一道题</b>框进去。识别准确率取决于框选范围。
+              直接拖框四角调大小，或长按框内移动位置。
+              {aspect === undefined && <b className="text-accent"> 自由模式：长宽随便拉。</b>}
             </p>
-            <div
-              className="relative w-full border-2 border-ink rounded-thick bg-black overflow-hidden"
-              style={{ height: 360 }}
-            >
-              <Cropper
-                image={stage.src}
-                crop={crop}
-                zoom={zoom}
-                aspect={aspect}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={onCropComplete}
-                showGrid
-                minZoom={0.5}
-                maxZoom={4}
-                restrictPosition={false}
-              />
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap">
               <span className="font-cn text-xs text-ink-2 shrink-0">比例</span>
               {ASPECT_PRESETS.map((p) => (
                 <Chip
                   key={p.label}
-                  active={Math.abs(aspect - p.value) < 0.01}
+                  active={aspect === p.value}
                   onClick={() => switchAspect(p.value)}
                 >
                   {p.label}
                 </Chip>
               ))}
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-cn text-xs text-ink-2 shrink-0">缩放</span>
-              <input
-                type="range"
-                min={0.5}
-                max={4}
-                step={0.05}
-                value={zoom}
-                onChange={(e) => setZoom(Number(e.target.value))}
-                className="flex-1"
-              />
+            <div className="border-2 border-ink rounded-thick bg-black p-1 flex items-center justify-center">
+              <ReactCrop
+                crop={crop}
+                onChange={(_, percentCrop) => setCrop(percentCrop)}
+                onComplete={(c) => setCompletedCrop(c)}
+                aspect={aspect}
+                minWidth={30}
+                minHeight={30}
+              >
+                <img
+                  ref={imgRef}
+                  src={stage.src}
+                  alt="待裁剪"
+                  style={{ maxHeight: '60vh', maxWidth: '100%', display: 'block' }}
+                />
+              </ReactCrop>
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={reset} className="flex-1 justify-center">
@@ -205,7 +205,7 @@ export function QuestionFromImage() {
               <Button
                 variant="primary"
                 onClick={confirmCrop}
-                disabled={!pixelCrop}
+                disabled={!completedCrop}
                 className="flex-[1.4] justify-center"
               >
                 确认裁剪 →

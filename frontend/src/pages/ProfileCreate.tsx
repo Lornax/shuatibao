@@ -7,11 +7,11 @@ import { Chip } from '../components/Chip';
 import { Input, Textarea } from '../components/Input';
 import { Layout } from '../components/Layout';
 
-const dailyMinChips: { label: string; minutes: number }[] = [
-  { label: '<30 min', minutes: 20 },
-  { label: '1 小时', minutes: 60 },
-  { label: '2 小时', minutes: 120 },
-  { label: '>3 小时', minutes: 180 },
+const dailyHourChips: { label: string; hours: number }[] = [
+  { label: '0.5 小时', hours: 0.5 },
+  { label: '1 小时', hours: 1 },
+  { label: '2 小时', hours: 2 },
+  { label: '3 小时', hours: 3 },
 ];
 
 const dailyQuestionChips: { label: string; n: number }[] = [
@@ -129,19 +129,23 @@ export function ProfileCreate() {
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
-                  min={5}
-                  max={720}
-                  value={dailyMinutes}
-                  onChange={(e) => setDailyMinutes(Math.max(5, Math.min(720, Number(e.target.value) || 0)))}
+                  step={0.5}
+                  min={0.1}
+                  max={12}
+                  value={(dailyMinutes / 60).toString()}
+                  onChange={(e) => {
+                    const h = Math.max(0.1, Math.min(12, Number(e.target.value) || 0));
+                    setDailyMinutes(Math.round(h * 60));
+                  }}
                 />
-                <span className="font-cn text-sm text-ink-2 shrink-0">分钟 / 天</span>
+                <span className="font-cn text-sm text-ink-2 shrink-0">小时 / 天</span>
               </div>
               <div className="flex gap-1 flex-wrap mt-2">
-                {dailyMinChips.map((c) => (
+                {dailyHourChips.map((c) => (
                   <Chip
-                    key={c.minutes}
-                    active={dailyMinutes === c.minutes}
-                    onClick={() => setDailyMinutes(c.minutes)}
+                    key={c.hours}
+                    active={dailyMinutes === c.hours * 60}
+                    onClick={() => setDailyMinutes(c.hours * 60)}
                   >
                     {c.label}
                   </Chip>
