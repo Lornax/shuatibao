@@ -122,7 +122,7 @@ export function ProfileDetail() {
 
   const title = profile ? profile.examName : '加载中';
 
-  // 今日目标进度
+  // 今日目标进度: 维度由档案 goalType 决定, 在档案编辑页设置, 主页只展示
   const goalView = profile?.goalType ?? 'minutes';
   const goalTarget =
     goalView === 'minutes' ? profile?.dailyMinutes ?? 60 : profile?.dailyQuestions ?? 20;
@@ -130,17 +130,6 @@ export function ProfileDetail() {
     goalView === 'minutes' ? stats?.todayMinutesDone ?? 0 : stats?.todayQuestionsDone ?? 0;
   const goalPct = goalTarget > 0 ? Math.min(100, Math.round((goalDone / goalTarget) * 100)) : 0;
   const goalReached = goalDone >= goalTarget && goalTarget > 0;
-
-  async function switchGoalType() {
-    if (!profile || !pid) return;
-    const next = goalView === 'minutes' ? 'questions' : 'minutes';
-    try {
-      const updated = await api.patchProfile(pid, { goalType: next });
-      setProfile(updated);
-    } catch (e) {
-      console.error('switch goal failed', e);
-    }
-  }
 
   return (
     <Layout title={title} back={() => nav('/profiles')}>
@@ -228,21 +217,13 @@ export function ProfileDetail() {
           {profile.target && (
             <div className="font-cn text-sm mb-2">🎯 {profile.target}</div>
           )}
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="font-cn text-xs font-bold">
-              {goalReached && <span className="mr-1">🎉</span>}
-              {goalView === 'minutes' ? '⏱ 今日时长' : '📝 今日题数'} ·{' '}
-              {goalView === 'minutes'
-                ? `${goalDone} / ${goalTarget} 分钟`
-                : `${goalDone} / ${goalTarget} 题`}
-              {goalReached && <span className="text-accent4 ml-1">已达成</span>}
-            </span>
-            <button
-              onClick={switchGoalType}
-              className="font-cn text-[11px] text-ink-2 underline underline-offset-2 active:text-accent"
-            >
-              切到{goalView === 'minutes' ? '题数' : '时长'}
-            </button>
+          <div className="font-cn text-xs font-bold mb-1.5">
+            {goalReached && <span className="mr-1">🎉</span>}
+            {goalView === 'minutes' ? '⏱ 今日时长' : '📝 今日题数'} ·{' '}
+            {goalView === 'minutes'
+              ? `${goalDone} / ${goalTarget} 分钟`
+              : `${goalDone} / ${goalTarget} 题`}
+            {goalReached && <span className="text-accent4 ml-1">已达成</span>}
           </div>
           <div className="w-full h-3 bg-paperWarm border border-ink rounded-full overflow-hidden">
             <div
