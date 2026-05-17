@@ -278,6 +278,30 @@ export const api = {
     });
   },
 
+  matchImportJob: (pid: string, filename: string, size: number) =>
+    request<{
+      match: null | {
+        jobId: string;
+        status: ImportJobStatus;
+        filename: string;
+        fileSize: number;
+        totalChunks: number;
+        doneChunks: number;
+        error: string | null;
+        createdAt: string;
+        candidatesCount: number;
+        canResume: boolean;
+      };
+    }>(
+      `/profiles/${pid}/import-jobs/match?filename=${encodeURIComponent(filename)}&size=${size}`,
+    ),
+
+  resumeImportJob: (pid: string, jid: string) =>
+    request<{ jobId: string; resumedFrom: number; totalChunks: number }>(
+      `/profiles/${pid}/import-jobs/${jid}/resume`,
+      { method: 'POST' },
+    ),
+
   getImportJob: (pid: string, jid: string) =>
     request<ImportJob>(`/profiles/${pid}/import-jobs/${jid}`),
 

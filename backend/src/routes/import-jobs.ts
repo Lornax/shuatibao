@@ -90,6 +90,7 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
       filename: file.name,
       totalChunks: chunks.length,
       doneChunks: 0,
+      fileSize: file.size,
       chunks,
       candidates: [],
       cosUrl,
@@ -105,6 +106,118 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
   });
 
   return c.json({ jobId: job.id, totalChunks: job.totalChunks }, 201);
+});
+
+// 上传前查重: 同档案 + 同 filename + 同 size 是否有已结束的 job
+// 返回最近一条; 用于客户端决策"复用现有 / 继续识别 / 重新识别"
+router.get('/profiles/:pid/import-jobs/match', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  const filename = c.req.query('filename') || '';
+  const sizeStr = c.req.query('size') || '0';
+  const size = Number(sizeStr);
+  if (!filename || !Number.isFinite(size) || size <= 0) {
+    return c.json({ match: null });
+  }
+
+  const [row] = await db
+    .select({
+      id: schema.importJobs.id,
+      status: schema.importJobs.status,
+      filename: schema.importJobs.filename,
+      fileSize: schema.importJobs.fileSize,
+      totalChunks: schema.importJobs.totalChunks,
+      doneChunks: schema.importJobs.doneChunks,
+      error: schema.importJobs.error,
+      createdAt: schema.importJobs.createdAt,
+      candidates: schema.importJobs.candidates,
+    })
+    .from(schema.importJobs)
+    .where(
+      and(
+        eq(schema.importJobs.profileId, pid),
+        eq(schema.importJobs.filename, filename),
+        eq(schema.importJobs.fileSize, size),
+        inArray(schema.importJobs.status, ['completed', 'failed'] as const),
+      ),
+    )
+    .orderBy(desc(schema.importJobs.createdAt))
+    .limit(1);
+
+  if (!row) return c.json({ match: null });
+
+  return c.json({
+    match: {
+      jobId: row.id,
+      status: row.status,
+      filename: row.filename,
+      fileSize: row.fileSize,
+      totalChunks: row.totalChunks,
+      doneChunks: row.doneChunks,
+      error: row.error,
+      createdAt: row.createdAt,
+      candidatesCount: Array.isArray(row.candidates) ? row.candidates.length : 0,
+      // 是否可续传: failed 且有 chunks 未跑完
+      canResume: row.status === 'failed' && row.doneChunks < row.totalChunks,
+    },
+  });
+});
+
+// 续传已 cancelled/failed 的 job: 状态改回 pending + 重新调度
+router.post('/profiles/:pid/import-jobs/:jid/resume', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  const jid = c.req.param('jid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  // 守护: 同档案下不能同时有两个 in-flight job
+  const inflight = await db
+    .select({ id: schema.importJobs.id })
+    .from(schema.importJobs)
+    .where(
+      and(
+        eq(schema.importJobs.profileId, pid),
+        inArray(schema.importJobs.status, ['pending', 'running'] as const),
+      ),
+    )
+    .limit(1);
+  if (inflight.length > 0) {
+    return c.json({ error: 'job_in_progress', jobId: inflight[0].id }, 409);
+  }
+
+  const [job] = await db
+    .select()
+    .from(schema.importJobs)
+    .where(eq(schema.importJobs.id, jid))
+    .limit(1);
+  if (!job || job.profileId !== pid) return c.json({ error: 'not_found' }, 404);
+  if (job.status !== 'failed') {
+    return c.json({ error: 'not_resumable', status: job.status }, 400);
+  }
+  if (!Array.isArray(job.chunks) || job.chunks.length === 0) {
+    return c.json({ error: 'no_chunks_to_resume' }, 400);
+  }
+  if (job.doneChunks >= job.totalChunks) {
+    return c.json({ error: 'already_complete' }, 400);
+  }
+
+  await db
+    .update(schema.importJobs)
+    .set({ status: 'pending', error: null, finishedAt: null })
+    .where(eq(schema.importJobs.id, jid));
+
+  setImmediate(() => {
+    processPdfImportJob(jid).catch((e) =>
+      console.error('[import-jobs] resume worker crashed', jid, e),
+    );
+  });
+
+  console.log(
+    `[import-jobs ${jid.slice(0, 8)}] resumed @ ${job.doneChunks}/${job.totalChunks}`,
+  );
+  return c.json({ jobId: jid, resumedFrom: job.doneChunks, totalChunks: job.totalChunks });
 });
 
 router.get('/profiles/:pid/import-jobs', async (c) => {

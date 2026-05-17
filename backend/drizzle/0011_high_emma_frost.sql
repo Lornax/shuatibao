@@ -1,0 +1,1 @@
+ALTER TABLE "import_jobs" ADD COLUMN "file_size" integer DEFAULT 0 NOT NULL;
