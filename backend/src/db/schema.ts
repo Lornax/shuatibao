@@ -10,6 +10,7 @@ export const importJobStatus = pgEnum('import_job_status', [
 ]);
 export const chatRole = pgEnum('chat_role', ['user', 'assistant']);
 export const wrongbookSource = pgEnum('wrongbook_source', ['auto', 'manual']);
+export const goalType = pgEnum('goal_type', ['minutes', 'questions']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -26,6 +27,8 @@ export const profiles = pgTable('profiles', {
   target: text('target'),
   examDate: timestamp('exam_date', { withTimezone: true }),
   dailyMinutes: integer('daily_minutes').default(60).notNull(),
+  dailyQuestions: integer('daily_questions').default(20).notNull(),
+  goalType: goalType('goal_type').default('minutes').notNull(),
   status: profileStatus('status').default('active').notNull(),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

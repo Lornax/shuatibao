@@ -71,6 +71,13 @@
       "when": 1778925015215,
       "tag": "0009_lame_rhino",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779028857450,
+      "tag": "0010_odd_sandman",
+      "breakpoints": true
     }
   ]
 }

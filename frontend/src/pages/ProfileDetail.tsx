@@ -10,6 +10,8 @@ type StudyStats = {
   attemptsLast7Days: number;
   daysSinceLastAttempt: number | null;
   daysUntilExam: number | null;
+  todayMinutesDone: number;
+  todayQuestionsDone: number;
 };
 
 type Nudge = { tone: 'red' | 'yellow' | 'cream'; text: string } | null;
@@ -120,8 +122,57 @@ export function ProfileDetail() {
 
   const title = profile ? profile.examName : '加载中';
 
+  // 今日目标进度
+  const goalView = profile?.goalType ?? 'minutes';
+  const goalTarget =
+    goalView === 'minutes' ? profile?.dailyMinutes ?? 60 : profile?.dailyQuestions ?? 20;
+  const goalDone =
+    goalView === 'minutes' ? stats?.todayMinutesDone ?? 0 : stats?.todayQuestionsDone ?? 0;
+  const goalPct = goalTarget > 0 ? Math.min(100, Math.round((goalDone / goalTarget) * 100)) : 0;
+  const goalReached = goalDone >= goalTarget && goalTarget > 0;
+
+  async function switchGoalType() {
+    if (!profile || !pid) return;
+    const next = goalView === 'minutes' ? 'questions' : 'minutes';
+    try {
+      const updated = await api.patchProfile(pid, { goalType: next });
+      setProfile(updated);
+    } catch (e) {
+      console.error('switch goal failed', e);
+    }
+  }
+
   return (
     <Layout title={title} back={() => nav('/profiles')}>
+      {profile && stats && (
+        <Box variant="thick" className={`p-3 mb-3 ${goalReached ? 'bg-chip-green' : 'bg-white'}`}>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="font-cn text-xs font-bold">
+              🎯 今日目标 ·{' '}
+              {goalView === 'minutes'
+                ? `${goalDone} / ${goalTarget} 分钟`
+                : `${goalDone} / ${goalTarget} 题`}
+              {goalReached && <span className="text-accent4 ml-1">✓ 已达成</span>}
+            </span>
+            <button
+              onClick={switchGoalType}
+              className="font-cn text-[11px] text-ink-2 underline underline-offset-2 active:text-accent"
+            >
+              切到{goalView === 'minutes' ? '题数' : '时长'}
+            </button>
+          </div>
+          <div className="w-full h-3 bg-paperWarm border border-ink rounded-full overflow-hidden">
+            <div
+              className="h-full transition-all"
+              style={{
+                width: `${goalPct}%`,
+                background: goalReached ? '#6ba368' : '#c14d2e',
+              }}
+            />
+          </div>
+        </Box>
+      )}
+
       {nudge && (
         <Link to={`/profiles/${pid}/study-chat`} className="block mb-3">
           <Box

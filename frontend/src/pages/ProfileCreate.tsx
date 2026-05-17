@@ -7,11 +7,18 @@ import { Chip } from '../components/Chip';
 import { Input, Textarea } from '../components/Input';
 import { Layout } from '../components/Layout';
 
-const dailyChips: { label: string; minutes: number }[] = [
+const dailyMinChips: { label: string; minutes: number }[] = [
   { label: '<30 min', minutes: 20 },
   { label: '1 小时', minutes: 60 },
   { label: '2 小时', minutes: 120 },
   { label: '>3 小时', minutes: 180 },
+];
+
+const dailyQuestionChips: { label: string; n: number }[] = [
+  { label: '5 道', n: 5 },
+  { label: '10 道', n: 10 },
+  { label: '20 道', n: 20 },
+  { label: '50 道', n: 50 },
 ];
 
 // Same component handles both create (no :pid in URL) and edit (/profiles/:pid/edit).
@@ -24,6 +31,8 @@ export function ProfileCreate() {
   const [target, setTarget] = useState('');
   const [examDate, setExamDate] = useState('');
   const [dailyMinutes, setDailyMinutes] = useState(60);
+  const [dailyQuestions, setDailyQuestions] = useState(20);
+  const [goalType, setGoalType] = useState<'minutes' | 'questions'>('minutes');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +46,8 @@ export function ProfileCreate() {
         setTarget(p.target ?? '');
         setExamDate(p.examDate ? p.examDate.slice(0, 10) : '');
         setDailyMinutes(p.dailyMinutes);
+        setDailyQuestions(p.dailyQuestions);
+        setGoalType(p.goalType);
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
@@ -56,6 +67,8 @@ export function ProfileCreate() {
           target: target.trim() || null,
           examDate: examDate ? new Date(examDate).toISOString() : null,
           dailyMinutes,
+          dailyQuestions,
+          goalType,
         });
         nav(`/profiles/${pid}`, { replace: true });
       } else {
@@ -64,6 +77,8 @@ export function ProfileCreate() {
           target: target.trim() || undefined,
           examDate: examDate ? new Date(examDate).toISOString() : undefined,
           dailyMinutes,
+          dailyQuestions,
+          goalType,
         });
         nav(`/profiles/${created.id}`, { replace: true });
       }
@@ -100,14 +115,35 @@ export function ProfileCreate() {
         </div>
 
         <div>
-          <label className="font-cn font-bold text-sm block mb-1">每天能投入</label>
-          <div className="flex gap-1 flex-wrap">
-            {dailyChips.map((c) => (
-              <Chip key={c.minutes} active={dailyMinutes === c.minutes} onClick={() => setDailyMinutes(c.minutes)}>
-                {c.label}
-              </Chip>
-            ))}
+          <label className="font-cn font-bold text-sm block mb-1">每日目标</label>
+          <div className="flex gap-1 mb-2">
+            <Chip active={goalType === 'minutes'} onClick={() => setGoalType('minutes')}>
+              ⏱ 按时长
+            </Chip>
+            <Chip active={goalType === 'questions'} onClick={() => setGoalType('questions')}>
+              📝 按题数
+            </Chip>
           </div>
+          {goalType === 'minutes' ? (
+            <div className="flex gap-1 flex-wrap">
+              {dailyMinChips.map((c) => (
+                <Chip key={c.minutes} active={dailyMinutes === c.minutes} onClick={() => setDailyMinutes(c.minutes)}>
+                  {c.label}
+                </Chip>
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-1 flex-wrap">
+              {dailyQuestionChips.map((c) => (
+                <Chip key={c.n} active={dailyQuestions === c.n} onClick={() => setDailyQuestions(c.n)}>
+                  {c.label}
+                </Chip>
+              ))}
+            </div>
+          )}
+          <p className="font-cn text-[11px] text-ink-3 mt-1">
+            主页会显示这个维度的进度条，事后可随时切换
+          </p>
         </div>
 
         {error && (

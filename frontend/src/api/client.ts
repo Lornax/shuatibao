@@ -45,6 +45,8 @@ export type Profile = {
   target: string | null;
   examDate: string | null;
   dailyMinutes: number;
+  dailyQuestions: number;
+  goalType: 'minutes' | 'questions';
   status: 'active' | 'archived' | 'given_up';
   createdAt: string;
 };
@@ -175,7 +177,14 @@ export const api = {
     request<{ ok: true }>('/auth/password', { method: 'PATCH', body: JSON.stringify(input) }),
 
   listProfiles: () => request<Profile[]>('/profiles'),
-  createProfile: (input: { examName: string; target?: string; examDate?: string; dailyMinutes?: number }) =>
+  createProfile: (input: {
+    examName: string;
+    target?: string;
+    examDate?: string;
+    dailyMinutes?: number;
+    dailyQuestions?: number;
+    goalType?: 'minutes' | 'questions';
+  }) =>
     request<Profile>('/profiles', { method: 'POST', body: JSON.stringify(input) }),
   getProfile: (id: string) => request<Profile>(`/profiles/${id}`),
   patchProfile: (
@@ -185,6 +194,8 @@ export const api = {
       target: string | null;
       examDate: string | null;
       dailyMinutes: number;
+      dailyQuestions: number;
+      goalType: 'minutes' | 'questions';
       status: 'active' | 'archived' | 'given_up';
     }>,
   ) => request<Profile>(`/profiles/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
@@ -198,6 +209,8 @@ export const api = {
       recentAttemptDates: string[];
       daysSinceLastAttempt: number | null;
       daysUntilExam: number | null;
+      todayMinutesDone: number;
+      todayQuestionsDone: number;
     }>(`/profiles/${pid}/stats`),
   getQuestion: (id: string) => request<Question>(`/questions/${id}`),
 

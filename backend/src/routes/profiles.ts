@@ -11,6 +11,8 @@ const createSchema = z.object({
   target: z.string().max(200).optional(),
   examDate: z.string().datetime().optional(),
   dailyMinutes: z.number().int().min(5).max(720).default(60),
+  dailyQuestions: z.number().int().min(1).max(500).default(20),
+  goalType: z.enum(['minutes', 'questions']).default('minutes'),
 });
 
 router.post('/', async (c) => {
@@ -28,6 +30,8 @@ router.post('/', async (c) => {
       target: parsed.data.target,
       examDate: parsed.data.examDate ? new Date(parsed.data.examDate) : null,
       dailyMinutes: parsed.data.dailyMinutes,
+      dailyQuestions: parsed.data.dailyQuestions,
+      goalType: parsed.data.goalType,
     })
     .returning();
   return c.json(row, 201);
@@ -60,6 +64,8 @@ const patchSchema = z.object({
   target: z.string().max(200).nullable().optional(),
   examDate: z.string().datetime().nullable().optional(),
   dailyMinutes: z.number().int().min(5).max(720).optional(),
+  dailyQuestions: z.number().int().min(1).max(500).optional(),
+  goalType: z.enum(['minutes', 'questions']).optional(),
   status: z.enum(['active', 'archived', 'given_up']).optional(),
 });
 
@@ -85,6 +91,8 @@ router.patch('/:id', async (c) => {
     patch.examDate = parsed.data.examDate ? new Date(parsed.data.examDate) : null;
   }
   if (parsed.data.dailyMinutes !== undefined) patch.dailyMinutes = parsed.data.dailyMinutes;
+  if (parsed.data.dailyQuestions !== undefined) patch.dailyQuestions = parsed.data.dailyQuestions;
+  if (parsed.data.goalType !== undefined) patch.goalType = parsed.data.goalType;
   if (parsed.data.status !== undefined) {
     patch.status = parsed.data.status;
     // 归档/放弃时记录时间；恢复 active 时清零

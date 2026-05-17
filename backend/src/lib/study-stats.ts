@@ -8,6 +8,8 @@ export type StudyStats = {
   recentAttemptDates: string[]; // YYYY-MM-DD list, most recent first, up to 7 entries
   daysSinceLastAttempt: number | null;
   daysUntilExam: number | null;
+  todayMinutesDone: number; // 今日 Asia/Shanghai 已学分钟数, sum(time_spent_ms)/60000 取整
+  todayQuestionsDone: number; // 今日 Asia/Shanghai 答题数 (distinct attempts 行数)
 };
 
 /**
@@ -70,6 +72,20 @@ export async function getStudyStats(profileId: string, userId: string, examDate:
     daysUntilExam = Math.ceil((examDate.getTime() - Date.now()) / (24 * 3600 * 1000));
   }
 
+  // 今日 (Asia/Shanghai) 答题数 + 学习时长
+  const todayRows = await db.execute<{ q_count: number; ms_sum: number }>(sql`
+    SELECT COUNT(*)::int AS q_count, COALESCE(SUM(a.time_spent_ms), 0)::bigint AS ms_sum
+    FROM attempts a
+    JOIN questions q ON q.id = a.question_id
+    WHERE a.user_id = ${userId}
+      AND q.profile_id = ${profileId}
+      AND (a.attempted_at AT TIME ZONE 'Asia/Shanghai')::date
+          = (NOW() AT TIME ZONE 'Asia/Shanghai')::date
+  `);
+  const row = (Array.isArray(todayRows) ? todayRows : (todayRows as any).rows ?? [])[0] ?? { q_count: 0, ms_sum: 0 };
+  const todayQuestionsDone = Number(row.q_count ?? 0);
+  const todayMinutesDone = Math.floor(Number(row.ms_sum ?? 0) / 60000);
+
   return {
     totalQuestions,
     wrongbookCount,
@@ -77,5 +93,7 @@ export async function getStudyStats(profileId: string, userId: string, examDate:
     recentAttemptDates,
     daysSinceLastAttempt,
     daysUntilExam,
+    todayMinutesDone,
+    todayQuestionsDone,
   };
 }
