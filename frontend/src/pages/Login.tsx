@@ -47,10 +47,10 @@ export function Login() {
 
         {/* hero */}
         <div className="text-center pt-4 relative">
-          <div className="logo">学</div>
-          <h1 className="title">学不死</h1>
+          <div className="logo">刷</div>
+          <h1 className="title">刷题宝</h1>
           <p className="subtitle">
-            和你一起, 把<span className="accent">那场考试</span>慢慢啃下来
+            有书有题, <span className="accent">考试有底</span>
           </p>
         </div>
 
@@ -148,7 +148,7 @@ export function Login() {
         </div>
 
         <div className="footer mt-8 text-center text-xs" style={{ color: '#8a7560' }}>
-          © 学不死 · 一个慢慢啃下来的备考工具
+          © 刷题宝 · 有书有题, 考试有底
         </div>
       </div>
 

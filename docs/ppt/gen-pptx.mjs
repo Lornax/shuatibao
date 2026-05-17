@@ -35,9 +35,9 @@ const FONT_CN_FALLBACK = 'PingFang SC';
 
 const pres = new pptxgen();
 pres.layout = 'LAYOUT_WIDE'; // 13.333" × 7.5"
-pres.title = '学不死 lite · 路演';
+pres.title = '刷题宝 · 路演';
 pres.author = 'Lornax';
-pres.company = '学不死 lite';
+pres.company = '刷题宝';
 
 // 通用 slide 母版: 米色背景 + 右下角页码
 pres.defineSlideMaster({
@@ -126,25 +126,33 @@ function addImage(slide, x, y, w, h, imgName, fallbackText) {
 // ===== Slide 01: 封面 =====
 {
   const s = pres.addSlide({ masterName: 'BASE' });
-  s.addText('学不死', {
-    x: 0.5, y: 2.4, w: 12.3, h: 1.4,
-    fontSize: 80, bold: true, fontFace: FONT_CN, color: C.ink, align: 'center',
+  // 右上角 AI 标签
+  addBox(s, { x: 10.8, y: 0.6, w: 2.0, h: 0.55, bg: C.ink, borderColor: C.accent, borderWidth: 2, shadow: false });
+  s.addText('✨ AI Powered', {
+    x: 10.8, y: 0.6, w: 2.0, h: 0.55,
+    fontSize: 14, bold: true, fontFace: FONT_CN, color: C.accent2, align: 'center', valign: 'middle',
   });
-  s.addText('lite', {
-    x: 0.5, y: 3.4, w: 12.3, h: 1.2,
-    fontSize: 72, bold: true, fontFace: FONT_CN, color: C.accent, align: 'center',
+
+  s.addText('刷题宝', {
+    x: 0.5, y: 2.2, w: 12.3, h: 1.5,
+    fontSize: 96, bold: true, fontFace: FONT_CN, color: C.ink, align: 'center',
   });
-  s.addText('一个 H5 备考陪跑工具', {
-    x: 0.5, y: 4.7, w: 12.3, h: 0.5,
-    fontSize: 24, fontFace: FONT_CN, color: C.ink2, align: 'center',
+  // slogan 主视觉
+  s.addText('有书有题，考试有底', {
+    x: 0.5, y: 3.9, w: 12.3, h: 0.9,
+    fontSize: 42, bold: true, fontFace: FONT_CN, color: C.accent, align: 'center',
   });
-  addBox(s, { x: 4.5, y: 5.4, w: 4.3, h: 0.6, bg: C.paper, borderColor: C.accent, borderWidth: 2 });
+  s.addText('一个 AI 驱动的 H5 备考陪跑工具', {
+    x: 0.5, y: 4.95, w: 12.3, h: 0.5,
+    fontSize: 22, fontFace: FONT_CN, color: C.ink2, align: 'center',
+  });
+  addBox(s, { x: 4.5, y: 5.7, w: 4.3, h: 0.6, bg: C.paper, borderColor: C.accent, borderWidth: 2 });
   s.addText('4 天 · 从 0 到 1 · 一个人 · 一直在线', {
-    x: 4.5, y: 5.4, w: 4.3, h: 0.6,
+    x: 4.5, y: 5.7, w: 4.3, h: 0.6,
     fontSize: 18, fontFace: FONT_CN, color: C.accent, align: 'center', valign: 'middle',
   });
   s.addText('Lornax · 2026-05 · 备考 NPDP 期间', {
-    x: 0.5, y: 6.4, w: 12.3, h: 0.4,
+    x: 0.5, y: 6.5, w: 12.3, h: 0.4,
     fontSize: 14, fontFace: FONT_CN, color: C.ink3, align: 'center',
   });
 }
@@ -207,7 +215,7 @@ function addImage(slide, x, y, w, h, imgName, fallbackText) {
 // ===== Slide 04: 三件事 =====
 {
   const s = pres.addSlide({ masterName: 'BASE' });
-  s.addText('学不死 lite 只做三件事', { x: 0.5, y: 0.5, w: 12.3, h: 0.8, fontSize: 32, bold: true, fontFace: FONT_CN, color: C.ink, align: 'center' });
+  s.addText('刷题宝 · 只做三件事', { x: 0.5, y: 0.5, w: 12.3, h: 0.8, fontSize: 32, bold: true, fontFace: FONT_CN, color: C.ink, align: 'center' });
   const items = [
     { x: 1.0, bg: C.chipBlue, icon: '📋', title: '档案', desc1: '每个考试一个档案', desc2: '填考试日期、每天投入' },
     { x: 4.95, bg: C.chipGreen, icon: '📚', title: '题库', desc1: '4 种加题方式', desc2: '查重 / 错题本 / 教材 RAG' },

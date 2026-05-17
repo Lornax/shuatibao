@@ -59,7 +59,7 @@ export function Register() {
         <div className="float dot dot-yellow" />
 
         <div className="text-center pt-4 relative">
-          <div className="logo">学</div>
+          <div className="logo">刷</div>
           <h1 className="title">建一个账号</h1>
           <p className="subtitle">
             从今天开始, <span className="accent">一题一题</span>积累
