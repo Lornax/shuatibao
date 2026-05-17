@@ -144,35 +144,7 @@ export function ProfileDetail() {
 
   return (
     <Layout title={title} back={() => nav('/profiles')}>
-      {profile && stats && (
-        <Box variant="thick" className={`p-3 mb-3 ${goalReached ? 'bg-chip-green' : 'bg-white'}`}>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="font-cn text-xs font-bold">
-              🎯 今日目标 ·{' '}
-              {goalView === 'minutes'
-                ? `${goalDone} / ${goalTarget} 分钟`
-                : `${goalDone} / ${goalTarget} 题`}
-              {goalReached && <span className="text-accent4 ml-1">✓ 已达成</span>}
-            </span>
-            <button
-              onClick={switchGoalType}
-              className="font-cn text-[11px] text-ink-2 underline underline-offset-2 active:text-accent"
-            >
-              切到{goalView === 'minutes' ? '题数' : '时长'}
-            </button>
-          </div>
-          <div className="w-full h-3 bg-paperWarm border border-ink rounded-full overflow-hidden">
-            <div
-              className="h-full transition-all"
-              style={{
-                width: `${goalPct}%`,
-                background: goalReached ? '#6ba368' : '#c14d2e',
-              }}
-            />
-          </div>
-        </Box>
-      )}
-
+      {/* 框 1: 日期 + 距考 + nudge — 入口语 */}
       {nudge && (
         <Link to={`/profiles/${pid}/study-chat`} className="block mb-3">
           <Box
@@ -236,14 +208,51 @@ export function ProfileDetail() {
         </div>
       )}
 
-      {profile ? (
-        <Box variant="thick" className="p-3 mb-3 bg-chip-cream">
-          <div className="font-cn text-xs text-ink-2">
+      {/* 框 3: 档案目标 + 今日进度 (合并) */}
+      {profile && stats ? (
+        <Box
+          variant="thick"
+          className={`p-3 mb-3 ${goalReached ? 'bg-chip-green' : 'bg-chip-cream'}`}
+        >
+          <div className="font-cn text-xs text-ink-2 mb-1">
             {profile.examDate
-              ? `${new Date(profile.examDate).toLocaleDateString('zh-CN')} · 每天 ${profile.dailyMinutes} 分钟`
-              : `每天 ${profile.dailyMinutes} 分钟（未设考试日期）`}
+              ? `📅 ${new Date(profile.examDate).toLocaleDateString('zh-CN')}${
+                  stats.daysUntilExam != null
+                    ? stats.daysUntilExam >= 0
+                      ? ` · 距考 ${stats.daysUntilExam} 天`
+                      : ` · 考期已过 ${-stats.daysUntilExam} 天`
+                    : ''
+                }`
+              : '未设考试日期'}
           </div>
-          {profile.target && <div className="font-cn text-sm mt-1">{profile.target}</div>}
+          {profile.target && (
+            <div className="font-cn text-sm mb-2">🎯 {profile.target}</div>
+          )}
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="font-cn text-xs font-bold">
+              {goalReached && <span className="mr-1">🎉</span>}
+              {goalView === 'minutes' ? '⏱ 今日时长' : '📝 今日题数'} ·{' '}
+              {goalView === 'minutes'
+                ? `${goalDone} / ${goalTarget} 分钟`
+                : `${goalDone} / ${goalTarget} 题`}
+              {goalReached && <span className="text-accent4 ml-1">已达成</span>}
+            </span>
+            <button
+              onClick={switchGoalType}
+              className="font-cn text-[11px] text-ink-2 underline underline-offset-2 active:text-accent"
+            >
+              切到{goalView === 'minutes' ? '题数' : '时长'}
+            </button>
+          </div>
+          <div className="w-full h-3 bg-paperWarm border border-ink rounded-full overflow-hidden">
+            <div
+              className="h-full transition-all"
+              style={{
+                width: `${goalPct}%`,
+                background: goalReached ? '#6ba368' : '#c14d2e',
+              }}
+            />
+          </div>
         </Box>
       ) : (
         <SkeletonHeader />

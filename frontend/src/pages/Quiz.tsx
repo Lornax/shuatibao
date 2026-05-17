@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, type Question } from '../api/client';
 import { Box } from '../components/Box';
@@ -38,6 +38,41 @@ export function Quiz() {
   const [viewing, setViewing] = useState<number | 'live'>('live');
   const [remaining, setRemaining] = useState<number | null>(null);
   const [libraryTotal, setLibraryTotal] = useState<number | null>(null);
+
+  // 活动计时: 用户超过 300 秒无操作时停止累计, 防止挂机膨胀今日学习时长
+  const idleTimerRef = useRef({
+    accumulatedMs: 0,
+    lastTickAt: Date.now(),
+    lastActivityAt: Date.now(),
+  });
+  const IDLE_THRESHOLD_MS = 300_000;
+
+  useEffect(() => {
+    // 每道题切换到 asking 时启动一个 1s tick + 活动监听
+    if (live.kind !== 'asking') return;
+    idleTimerRef.current = {
+      accumulatedMs: 0,
+      lastTickAt: Date.now(),
+      lastActivityAt: Date.now(),
+    };
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      const delta = now - idleTimerRef.current.lastTickAt;
+      if (now - idleTimerRef.current.lastActivityAt < IDLE_THRESHOLD_MS) {
+        idleTimerRef.current.accumulatedMs += delta;
+      }
+      idleTimerRef.current.lastTickAt = now;
+    }, 1000);
+    const bump = () => {
+      idleTimerRef.current.lastActivityAt = Date.now();
+    };
+    const events: (keyof WindowEventMap)[] = ['mousemove', 'touchstart', 'keydown', 'click'];
+    events.forEach((ev) => window.addEventListener(ev, bump, { passive: true } as AddEventListenerOptions));
+    return () => {
+      window.clearInterval(id);
+      events.forEach((ev) => window.removeEventListener(ev, bump));
+    };
+  }, [live.kind]);
 
   async function refreshStats() {
     if (!pid) return;
@@ -94,7 +129,8 @@ export function Quiz() {
 
   async function submit() {
     if (live.kind !== 'asking' || !live.chosen) return;
-    const elapsed = Date.now() - live.startAt;
+    // 用活动累计时长 (idle 超 300s 不计) 提交; 不再用墙钟 Date.now() - startAt
+    const elapsed = Math.min(idleTimerRef.current.accumulatedMs, 60 * 60 * 1000);
     const res = await api.submitAttempt(live.q.id, {
       chosen: live.chosen,
       timeSpentMs: elapsed,

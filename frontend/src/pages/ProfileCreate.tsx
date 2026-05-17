@@ -125,24 +125,58 @@ export function ProfileCreate() {
             </Chip>
           </div>
           {goalType === 'minutes' ? (
-            <div className="flex gap-1 flex-wrap">
-              {dailyMinChips.map((c) => (
-                <Chip key={c.minutes} active={dailyMinutes === c.minutes} onClick={() => setDailyMinutes(c.minutes)}>
-                  {c.label}
-                </Chip>
-              ))}
-            </div>
+            <>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={5}
+                  max={720}
+                  value={dailyMinutes}
+                  onChange={(e) => setDailyMinutes(Math.max(5, Math.min(720, Number(e.target.value) || 0)))}
+                />
+                <span className="font-cn text-sm text-ink-2 shrink-0">分钟 / 天</span>
+              </div>
+              <div className="flex gap-1 flex-wrap mt-2">
+                {dailyMinChips.map((c) => (
+                  <Chip
+                    key={c.minutes}
+                    active={dailyMinutes === c.minutes}
+                    onClick={() => setDailyMinutes(c.minutes)}
+                  >
+                    {c.label}
+                  </Chip>
+                ))}
+                <span className="font-cn text-[11px] text-ink-3 self-center ml-1">← 快捷点选</span>
+              </div>
+            </>
           ) : (
-            <div className="flex gap-1 flex-wrap">
-              {dailyQuestionChips.map((c) => (
-                <Chip key={c.n} active={dailyQuestions === c.n} onClick={() => setDailyQuestions(c.n)}>
-                  {c.label}
-                </Chip>
-              ))}
-            </div>
+            <>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={dailyQuestions}
+                  onChange={(e) => setDailyQuestions(Math.max(1, Math.min(500, Number(e.target.value) || 0)))}
+                />
+                <span className="font-cn text-sm text-ink-2 shrink-0">题 / 天</span>
+              </div>
+              <div className="flex gap-1 flex-wrap mt-2">
+                {dailyQuestionChips.map((c) => (
+                  <Chip
+                    key={c.n}
+                    active={dailyQuestions === c.n}
+                    onClick={() => setDailyQuestions(c.n)}
+                  >
+                    {c.label}
+                  </Chip>
+                ))}
+                <span className="font-cn text-[11px] text-ink-3 self-center ml-1">← 快捷点选</span>
+              </div>
+            </>
           )}
           <p className="font-cn text-[11px] text-ink-3 mt-1">
-            主页会显示这个维度的进度条，事后可随时切换
+            可手填或点 chip 快捷填入。主页只显示这个维度的进度条
           </p>
         </div>
 
