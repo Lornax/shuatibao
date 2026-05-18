@@ -261,4 +261,57 @@ router.post('/profiles/:pid/questions/batch-delete', async (c) => {
   return c.json({ deleted: r.length });
 });
 
+// 一键去重: 按 stem 完全相同 (.trim()) 分组, 每组保留 createdAt 最早一道, 删其余
+// 用于清理"批量入库被打断后多次重传"造成的硬重复
+router.post('/profiles/:pid/questions/dedupe', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  const rows = await db
+    .select({
+      id: schema.questions.id,
+      stem: schema.questions.stem,
+      createdAt: schema.questions.createdAt,
+    })
+    .from(schema.questions)
+    .where(eq(schema.questions.profileId, pid));
+
+  // 按 stem 分组, 保留最早的, 其余记入待删
+  const byStem = new Map<string, { keep: string; toDelete: string[] }>();
+  for (const row of rows) {
+    const key = row.stem.trim();
+    const entry = byStem.get(key);
+    if (!entry) {
+      byStem.set(key, { keep: row.id, toDelete: [] });
+    } else {
+      // 比较 createdAt, 留早的
+      const keepRow = rows.find((x) => x.id === entry.keep)!;
+      if (row.createdAt < keepRow.createdAt) {
+        entry.toDelete.push(entry.keep);
+        entry.keep = row.id;
+      } else {
+        entry.toDelete.push(row.id);
+      }
+    }
+  }
+  const idsToDelete = Array.from(byStem.values()).flatMap((v) => v.toDelete);
+  if (idsToDelete.length === 0) {
+    return c.json({ deleted: 0, kept: rows.length, totalBefore: rows.length });
+  }
+  await db
+    .delete(schema.questions)
+    .where(
+      and(
+        eq(schema.questions.profileId, pid),
+        inArray(schema.questions.id, idsToDelete),
+      ),
+    );
+  return c.json({
+    deleted: idsToDelete.length,
+    kept: rows.length - idsToDelete.length,
+    totalBefore: rows.length,
+  });
+});
+
 export { router as questionsRouter };

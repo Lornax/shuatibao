@@ -20,6 +20,10 @@ const schema = z.object({
   COS_SECRET_KEY: z.string().optional(),
   COS_BUCKET: z.string().optional(),
   COS_REGION: z.string().optional(),
+  // Fallback: coding plan (qwen3.6-plus / glm-5 / qwen3-max-2026-01-23)
+  // 文本/视觉 LLM 用完时切. 向量模型这个套餐没有, embed 走 v3→v2 fallback.
+  DASHSCOPE_CODING_API_KEY: z.string().optional(),
+  DASHSCOPE_CODING_BASE_URL: z.string().default('https://coding.dashscope.aliyuncs.com/v1'),
 });
 
 export const config = schema.parse(process.env);

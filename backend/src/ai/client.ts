@@ -12,30 +12,85 @@ import {
   type CandidateQuestion,
 } from './parser.js';
 
+// 主 client: 百炼普通套餐 (qwen-max / qwen-vl-max / text-embedding-v3 / deepseek-v3)
 const client = new OpenAI({
   apiKey: config.DASHSCOPE_API_KEY,
   baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
 });
 
+// Fallback client: 百炼 coding plan (qwen3.6-plus 含视觉 / glm-5 / qwen3-max-2026-01-23)
+// 没配 key 时为 null, fallback 行为退化成"直接 throw 原错误"
+const codingClient = config.DASHSCOPE_CODING_API_KEY
+  ? new OpenAI({
+      apiKey: config.DASHSCOPE_CODING_API_KEY,
+      baseURL: config.DASHSCOPE_CODING_BASE_URL,
+    })
+  : null;
+
+// 主模型
 const MODEL_VISION = 'qwen-vl-max';
 const MODEL_TEXT = 'qwen-max';
 const MODEL_EMBEDDING = 'text-embedding-v3';
 const MODEL_CHAT = 'deepseek-v3';
+// Coding plan 替换模型 (用户配置)
+const FB_VISION = 'qwen3.6-plus'; // 文本+视觉, 替换 qwen-vl-max
+const FB_TEXT = 'qwen3-max-2026-01-23'; // 替换 qwen-max
+const FB_CHAT = 'glm-5'; // 替换 deepseek-v3 (chat 长文本对话)
+// Embedding 没有 coding plan, 用同 client 的 v2 兜底
+const FB_EMBEDDING = 'text-embedding-v2';
+
+function isQuotaError(e: unknown): boolean {
+  const msg = String((e as { message?: unknown })?.message ?? e ?? '').toLowerCase();
+  const status = (e as { status?: number })?.status;
+  return (
+    status === 429 ||
+    msg.includes('insufficient') ||
+    msg.includes('quota') ||
+    msg.includes('arrearage') ||
+    msg.includes('余额') ||
+    msg.includes('rate limit') ||
+    msg.includes('model_not_found')
+  );
+}
+
+// 主模型/主 client 挂了 → 切 fallback (可能换 client + 换 model)
+async function withFallback<T>(
+  primaryClient: OpenAI,
+  primaryModel: string,
+  fallbackClient: OpenAI | null,
+  fallbackModel: string,
+  label: string,
+  run: (c: OpenAI, m: string) => Promise<T>,
+): Promise<T> {
+  try {
+    return await run(primaryClient, primaryModel);
+  } catch (e) {
+    if (!isQuotaError(e)) throw e;
+    if (!fallbackClient) {
+      console.warn(`[ai:${label}] primary "${primaryModel}" quota, no fallback client configured`);
+      throw e;
+    }
+    console.warn(`[ai:${label}] primary "${primaryModel}" hit quota, fallback to "${fallbackModel}"`);
+    return await run(fallbackClient, fallbackModel);
+  }
+}
 
 export async function recognizeQuestionFromImage(imageBase64DataUrl: string): Promise<CandidateQuestion> {
-  const r = await client.chat.completions.create({
-    model: MODEL_VISION,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: VISION_RECOGNIZE_PROMPT },
-          { type: 'image_url', image_url: { url: imageBase64DataUrl } },
-        ],
-      },
-    ],
-    temperature: 0.1,
-  });
+  const r = await withFallback(client, MODEL_VISION, codingClient, FB_VISION, 'vision', (c, m) =>
+    c.chat.completions.create({
+      model: m,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: VISION_RECOGNIZE_PROMPT },
+            { type: 'image_url', image_url: { url: imageBase64DataUrl } },
+          ],
+        },
+      ],
+      temperature: 0.1,
+    }),
+  );
   const raw = r.choices[0]?.message?.content ?? '';
   return parseCandidateOrThrow(typeof raw === 'string' ? raw : '');
 }
@@ -68,15 +123,16 @@ export async function generateQuestionFromPrompt(
   const systemPrompt = textbookReference
     ? `${PROMPT_GEN_PROMPT}\n\n${textbookReference}`
     : PROMPT_GEN_PROMPT;
-  const r = await client.chat.completions.create({
-    model: MODEL_TEXT,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMsg },
-    ],
-    // 批量出题时升温度增加多样性
-    temperature: excludeStems && excludeStems.length > 0 ? 0.9 : 0.7,
-  });
+  const r = await withFallback(client, MODEL_TEXT, codingClient, FB_TEXT, 'genPrompt', (c, model) =>
+    c.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMsg },
+      ],
+      temperature: excludeStems && excludeStems.length > 0 ? 0.9 : 0.7,
+    }),
+  );
   const raw = r.choices[0]?.message?.content ?? '';
   return parseCandidateOrThrow(raw);
 }
@@ -85,16 +141,18 @@ export async function structureQuestionsFromPdfText(
   pdfText: string,
   opts: { signal?: AbortSignal } = {},
 ): Promise<CandidateQuestion[]> {
-  const r = await client.chat.completions.create(
-    {
-      model: MODEL_TEXT,
-      messages: [
-        { role: 'system', content: PDF_STRUCTURE_PROMPT },
-        { role: 'user', content: pdfText },
-      ],
-      temperature: 0.1,
-    },
-    { signal: opts.signal },
+  const r = await withFallback(client, MODEL_TEXT, codingClient, FB_TEXT, 'pdfStruct', (c, model) =>
+    c.chat.completions.create(
+      {
+        model,
+        messages: [
+          { role: 'system', content: PDF_STRUCTURE_PROMPT },
+          { role: 'user', content: pdfText },
+        ],
+        temperature: 0.1,
+      },
+      { signal: opts.signal },
+    ),
   );
   const raw = r.choices[0]?.message?.content ?? '';
   return parseCandidateArrayOrThrow(raw);
@@ -105,16 +163,18 @@ export async function solveQuestion(
   options: { key: string; text: string }[],
 ): Promise<{ answer: string; explanation: string }> {
   const optionsStr = options.map((o) => `${o.key}. ${o.text}`).join('\n');
-  const r = await client.chat.completions.create({
-    model: MODEL_TEXT,
-    messages: [
-      {
-        role: 'system',
-        content: SOLVE_PROMPT.replace('{stem}', stem).replace('{options}', optionsStr),
-      },
-    ],
-    temperature: 0.3,
-  });
+  const r = await withFallback(client, MODEL_TEXT, codingClient, FB_TEXT, 'solve', (c, model) =>
+    c.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: SOLVE_PROMPT.replace('{stem}', stem).replace('{options}', optionsStr),
+        },
+      ],
+      temperature: 0.3,
+    }),
+  );
   const raw = (r.choices[0]?.message?.content ?? '').trim();
   const json = raw.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```$/, '');
   let obj: any;
@@ -134,10 +194,12 @@ export async function solveQuestion(
 
 export async function embed(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const r = await client.embeddings.create({
-    model: MODEL_EMBEDDING,
-    input: texts,
-  });
+  const r = await withFallback(client, MODEL_EMBEDDING, client, FB_EMBEDDING, 'embed', (c, model) =>
+    c.embeddings.create({
+      model,
+      input: texts,
+    }),
+  );
   return r.data.map((d) => d.embedding);
 }
 
@@ -185,15 +247,17 @@ export async function chatAboutQuestion(
   systemPrompt = `今天是 ${cnDate}（Asia/Shanghai）。\n\n${systemPrompt}`;
   if (textbookReference) systemPrompt += `\n\n${textbookReference}`;
 
-  const r = await client.chat.completions.create({
-    model: MODEL_CHAT,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      ...history.map((m) => ({ role: m.role, content: m.content })),
-      { role: 'user', content: newUserMessage },
-    ],
-    temperature: 0.5,
-  });
+  const r = await withFallback(client, MODEL_CHAT, codingClient, FB_CHAT, 'chat', (c, model) =>
+    c.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...history.map((m) => ({ role: m.role, content: m.content })),
+        { role: 'user', content: newUserMessage },
+      ],
+      temperature: 0.5,
+    }),
+  );
   const reply = r.choices[0]?.message?.content?.trim() ?? '';
   if (!reply) throw new Error('AI 返回了空回复');
   return reply;
@@ -266,18 +330,20 @@ export async function generateStudyWelcome(
   stats: StudyStatsContext,
 ): Promise<string> {
   const systemPrompt = buildStudySystemPrompt(profile, stats);
-  const r = await client.chat.completions.create({
-    model: MODEL_CHAT,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content:
-          '请用 2-3 句话开场，根据当前数据给出**一个**最具体的行动建议。不要复述上面的数据，直接给建议。',
-      },
-    ],
-    temperature: 0.5,
-  });
+  const r = await withFallback(client, MODEL_CHAT, codingClient, FB_CHAT, 'chat', (c, model) =>
+    c.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content:
+            '请用 2-3 句话开场，根据当前数据给出**一个**最具体的行动建议。不要复述上面的数据，直接给建议。',
+        },
+      ],
+      temperature: 0.5,
+    }),
+  );
   const reply = r.choices[0]?.message?.content?.trim() ?? '';
   if (!reply) throw new Error('AI 返回空 welcome');
   return reply;
@@ -292,15 +358,17 @@ export async function chatStudy(
 ): Promise<string> {
   let systemPrompt = buildStudySystemPrompt(profile, stats);
   if (textbookReference) systemPrompt += `\n\n${textbookReference}`;
-  const r = await client.chat.completions.create({
-    model: MODEL_CHAT,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      ...history.map((m) => ({ role: m.role, content: m.content })),
-      { role: 'user', content: newUserMessage },
-    ],
-    temperature: 0.5,
-  });
+  const r = await withFallback(client, MODEL_CHAT, codingClient, FB_CHAT, 'chat', (c, model) =>
+    c.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...history.map((m) => ({ role: m.role, content: m.content })),
+        { role: 'user', content: newUserMessage },
+      ],
+      temperature: 0.5,
+    }),
+  );
   const reply = r.choices[0]?.message?.content?.trim() ?? '';
   if (!reply) throw new Error('AI 返回空回复');
   return reply;

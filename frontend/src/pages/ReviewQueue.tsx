@@ -26,6 +26,18 @@ export function ReviewQueue() {
     }
   }
 
+  // 批量操作中刷新/关闭浏览器 → 弹原生确认框, 减少误操作
+  useEffect(() => {
+    if (!batch) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '批量入库中, 离开会中断 (已入库的题保留)';
+      return e.returnValue;
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [batch]);
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -134,6 +146,18 @@ export function ReviewQueue() {
     setBatch({ mode: 'approve', done: 0, total: withAnswer.length });
     setBusy(true);
     const succeededIdxs = new Set<number>();
+    // 节流 PATCH: 每入 1 道就重算剩余 candidates 并 PATCH, 但不超过 1.5s 一次
+    // 这样刷新中断时, db 里 job.candidates 几乎实时反映"还没入库的那些"
+    let lastPatchAt = 0;
+    const patchRemaining = async () => {
+      const remaining = job.candidates.filter((_, i) => !succeededIdxs.has(i));
+      try {
+        await api.patchImportJob(pid, jid, remaining);
+      } catch (e) {
+        console.warn('patchImportJob during batch failed (will retry at end)', e);
+      }
+    };
+
     try {
       for (const { c, i } of withAnswer) {
         try {
@@ -151,7 +175,14 @@ export function ReviewQueue() {
           // skip failures, continue rest
         }
         setBatch((b) => (b ? { ...b, done: b.done + 1 } : null));
+        // 节流: 1.5s 一次 PATCH, 不阻塞主流程
+        const now = Date.now();
+        if (now - lastPatchAt > 1500) {
+          lastPatchAt = now;
+          void patchRemaining();
+        }
       }
+      // 收尾: 把最后剩下的 candidates 一次性 PATCH (覆盖之前可能 race 的写入)
       const next = job.candidates.filter((_, i) => !succeededIdxs.has(i));
       await api.patchImportJob(pid, jid, next);
       if (next.length === 0) {

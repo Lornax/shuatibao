@@ -466,4 +466,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ ids }),
     }),
+
+  dedupeQuestions: (pid: string) =>
+    request<{ deleted: number; kept: number; totalBefore: number }>(
+      `/profiles/${pid}/questions/dedupe`,
+      { method: 'POST' },
+    ),
 };

@@ -190,6 +190,26 @@ export function LibraryManage() {
     }
   }
 
+  async function dedupe() {
+    if (!pid) return;
+    if (!window.confirm('一键去重：按题干完全相同分组，每组留最早一道，删其余。\n通常用于清理批量入库被打断造成的重复。继续？')) return;
+    setBatchBusy(true);
+    try {
+      const r = await api.dedupeQuestions(pid);
+      if (r.deleted === 0) {
+        window.alert(`没有重复题。共 ${r.totalBefore} 道。`);
+      } else {
+        window.alert(`✓ 清掉 ${r.deleted} 道重复，保留 ${r.kept} 道（原有 ${r.totalBefore} 道）。`);
+      }
+      setSelectedIds(new Set());
+      await loadFirstPage();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBatchBusy(false);
+    }
+  }
+
   async function clearAll() {
     if (!pid || list === null) return;
     // 第一道防线：先确认
@@ -384,6 +404,14 @@ export function LibraryManage() {
               </div>
             )}
             <div className="pt-2 border-t border-dashed border-ink-3 mt-2">
+              <p className="font-cn text-[11px] text-ink-3 mb-1">维护工具</p>
+              <button
+                onClick={dedupe}
+                disabled={batchBusy || (total ?? 0) === 0}
+                className="font-cn text-xs text-ink underline disabled:opacity-40 block mb-2"
+              >
+                🧹 一键去重 (按题干相同合并)
+              </button>
               <p className="font-cn text-[11px] text-ink-3 mb-1">危险操作</p>
               <button
                 onClick={clearAll}
