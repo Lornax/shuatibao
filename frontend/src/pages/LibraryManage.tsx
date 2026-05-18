@@ -121,6 +121,13 @@ export function LibraryManage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  // 进入多选模式时, 自动 loadFull, 保证 "全选" 是整个题库范围 (受当前筛选过滤),
+  // 而不是只选当前已分页加载的那几道.
+  useEffect(() => {
+    if (multiSelect && loadState === 'paged') loadFull();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [multiSelect]);
+
   async function handleDelete(id: string) {
     if (!confirm('确认删除这道题？此操作不可撤销')) return;
     try {
@@ -441,9 +448,12 @@ export function LibraryManage() {
             <>
               <button
                 onClick={() => setSelectedIds(new Set(filtered.map((q) => q.id)))}
-                className="font-cn text-xs text-ink-2 underline"
+                disabled={loadState === 'loading-full'}
+                className="font-cn text-xs text-ink-2 underline disabled:opacity-50"
               >
-                全选 ({filtered.length})
+                {loadState === 'loading-full'
+                  ? '加载全量...'
+                  : `全选 (${filtered.length})`}
               </button>
               {selectedIds.size > 0 && (
                 <>
