@@ -53,7 +53,9 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
 
   const buf = Buffer.from(await file.arrayBuffer());
 
-  // 内容 hash: 同 userId + 同 hash + completed 的旧 job 直接复用 candidates, 不调 LLM
+  // 内容 hash: 同 userId + 同 hash + 有 candidates 的旧 job 直接复用, 不调 LLM
+  // 不再限 status='completed', 因为很多 job 是 cancelled (用户审完取消) 仍含全部 candidates
+  // 排序: candidates 数最多优先 (拿最完整的), 同等数量按时间倒序
   const contentHash = createHash('sha256').update(buf).digest('hex');
   const [cached] = await db
     .select()
@@ -62,11 +64,14 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
       and(
         eq(schema.importJobs.userId, userId),
         eq(schema.importJobs.contentHash, contentHash),
-        eq(schema.importJobs.status, 'completed'),
         isNotNull(schema.importJobs.contentHash),
+        sql`jsonb_array_length(${schema.importJobs.candidates}) > 0`,
       ),
     )
-    .orderBy(desc(schema.importJobs.createdAt))
+    .orderBy(
+      sql`jsonb_array_length(${schema.importJobs.candidates}) DESC`,
+      desc(schema.importJobs.createdAt),
+    )
     .limit(1);
   if (cached && Array.isArray(cached.candidates) && cached.candidates.length > 0) {
     // 命中: 复制 candidates 到本档案的新 job, 状态直接 completed
