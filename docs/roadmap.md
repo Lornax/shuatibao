@@ -17,7 +17,7 @@
 | 题目页问 AI + 教材 RAG | ✅ v0.5 |
 | AI 陪学 Tab（独立对话） | ✅ v0.4 |
 | 视觉打磨（v2 设计语言 · 霞鹜文楷 · 红影） | ✅ v0.8.0 |
-| VPS 上线 · 手机可访问 | ✅ http://82.156.139.33:3001 |
+| VPS 上线 · 手机可访问 | ✅ http://<your-vps-ip>:3001 |
 | PDF 导入断点续传 | ✅ v0.0.8.2 |
 
 **P1 验收 7 条全部达成。**
@@ -32,7 +32,7 @@
 
 - **数据备份** —
   - `GET /api/me/export`：一键导出当前用户全部档案 / 题库 / 错题 / 教材引用为 JSON
-  - VPS systemd timer 每日 `pg_dump` 推 COS（已有 `zp1-1428145534` bucket），保留 7 天
+  - VPS systemd timer 每日 `pg_dump` 推 COS（用 `COS_BUCKET` env 指定），保留 7 天
 - **HTTPS** — 装 Caddy + Let's Encrypt 自动续证，需要先备好域名（腾讯云 `.top` / `.xyz` 几块钱一年即可）。当前 HTTP 登录密码明文走公网。
 
 ### B. 学习节奏可视化（用户新提）

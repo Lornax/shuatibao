@@ -146,7 +146,7 @@ DASHSCOPE_API_KEY=
 最终内容：
 ```
 PORT=3001
-DATABASE_URL=postgres://lornax@localhost:5432/learn_or_die_lite
+DATABASE_URL=postgres://<admin-user>host:5432/learn_or_die_lite
 API_TOKEN=dev-fixed-token-change-me
 SEED_USER_ID=
 DASHSCOPE_API_KEY=

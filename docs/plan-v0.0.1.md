@@ -256,7 +256,7 @@ git commit -m "chore: setup npm workspaces and base tsconfig"
 
 ```
 PORT=3001
-DATABASE_URL=postgres://lornax@localhost:5432/learn_or_die_lite
+DATABASE_URL=postgres://<admin-user>host:5432/learn_or_die_lite
 API_TOKEN=dev-fixed-token-change-me
 ```
 
@@ -671,7 +671,7 @@ export default defineConfig({
   schema: './src/db/schema.ts',
   out: './drizzle',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://lornax@localhost:5432/learn_or_die_lite',
+    url: process.env.DATABASE_URL ?? 'postgres://<admin-user>host:5432/learn_or_die_lite',
   },
 });
 ```
@@ -727,7 +727,7 @@ async function seed() {
   const [user] = await db
     .insert(schema.users)
     .values({
-      email: 'lornax@local',
+      email: '<admin-user>',
       nickname: 'Lornax',
     })
     .returning();
@@ -939,7 +939,7 @@ export async function resetDb() {
   await db.execute(sql`TRUNCATE attempts, questions, profiles, users RESTART IDENTITY CASCADE`);
   await db.insert(schema.users).values({
     id: TEST_USER_ID,
-    email: 'lornax@local',
+    email: '<admin-user>',
     nickname: 'Lornax',
   });
 }
