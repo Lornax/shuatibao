@@ -309,6 +309,21 @@ export const api = {
       { method: 'POST' },
     ),
 
+  createAiGenJob: (
+    pid: string,
+    input: {
+      knowledge: string;
+      difficulty: number;
+      chapter?: string;
+      topics?: string;
+      count: number;
+    },
+  ) =>
+    request<{ jobId: string; total: number }>(`/profiles/${pid}/ai-gen-jobs`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
   getImportJob: (pid: string, jid: string) =>
     request<ImportJob>(`/profiles/${pid}/import-jobs/${jid}`),
 

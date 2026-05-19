@@ -128,6 +128,7 @@ export function LibraryManage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [multiSelect]);
 
+
   async function handleDelete(id: string) {
     if (!confirm('确认删除这道题？此操作不可撤销')) return;
     try {
@@ -217,23 +218,47 @@ export function LibraryManage() {
     }
   }
 
-  async function clearAll() {
-    if (!pid || list === null) return;
-    // 第一道防线：先确认
-    if (!window.confirm(`⚠ 清空整个题库——${total ?? '?'} 道题全部删除，不可撤销。继续？`)) return;
-    // 第二道防线：输入"清空"才放行
-    const word = window.prompt('请输入「清空」两个字确认（避免误删）：');
-    if (word !== '清空') {
-      setError('未输入「清空」，已取消');
+  // 清空"当前筛选匹配的"题. 没筛选 = 清整个题库; 有筛选 = 只清匹配的子集.
+  async function clearFiltered() {
+    if (!pid) return;
+    // 先确保全量数据在内存 (不然 filtered 不准)
+    let workingList = list;
+    if (loadState !== 'full') {
+      setLoadState('loading-full');
+      try {
+        workingList = await api.listQuestions(pid);
+        setList(workingList);
+        setTotal(workingList.length);
+        setLoadState('full');
+      } catch (e) {
+        setError(String(e));
+        setLoadState('paged');
+        return;
+      }
+    }
+    if (!workingList) return;
+    // 用 filtered (UI 上当前展示集) 决定清哪些
+    const targetIds = filtered.map((q) => q.id);
+    if (targetIds.length === 0) {
+      setError('当前没有题可清');
       return;
+    }
+    const isFullClear = activeFilterCount === 0;
+    const desc = isFullClear
+      ? `⚠ 清空整个题库 ${targetIds.length} 道, 不可撤销.`
+      : `⚠ 清空当前筛选匹配的 ${targetIds.length} 道 (筛选条件下的子集), 不可撤销.`;
+    if (!window.confirm(`${desc}\n\n继续？`)) return;
+    // 全量清空再加一道防线
+    if (isFullClear) {
+      const word = window.prompt('请输入「清空」两个字确认（避免误删）：');
+      if (word !== '清空') {
+        setError('未输入「清空」，已取消');
+        return;
+      }
     }
     setBatchBusy(true);
     try {
-      // 先确保拿到全部 ids
-      const all = loadState === 'full' ? list : await api.listQuestions(pid);
-      const ids = all.map((q) => q.id);
-      if (ids.length === 0) return;
-      await api.batchDeleteQuestions(pid, ids);
+      await api.batchDeleteQuestions(pid, targetIds);
       setSelectedIds(new Set());
       await loadFirstPage();
     } catch (e) {
@@ -266,6 +291,12 @@ export function LibraryManage() {
     (dateRange !== 'all' ? 1 : 0) +
     (sourceFilter.size !== ALL_SOURCES.length ? 1 : 0) +
     (diffFilter.size !== 5 ? 1 : 0);
+
+  // 用户应用任何筛选时也自动 loadFull, 让 "当前筛选匹配 N 道" 数字精确
+  useEffect(() => {
+    if (activeFilterCount > 0 && loadState === 'paged') loadFull();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilterCount]);
 
   const sinceMs = useMemo(() => {
     const day = 24 * 3600 * 1000;
@@ -421,11 +452,13 @@ export function LibraryManage() {
               </button>
               <p className="font-cn text-[11px] text-ink-3 mb-1">危险操作</p>
               <button
-                onClick={clearAll}
+                onClick={clearFiltered}
                 disabled={batchBusy || (total ?? 0) === 0}
                 className="font-cn text-xs text-accent underline disabled:opacity-40"
               >
-                ⚠ 清空全部题库 ({total ?? 0} 道)
+                {activeFilterCount > 0
+                  ? `⚠ 清空当前筛选 (${filtered.length} 道)`
+                  : `⚠ 清空全部题库 (${total ?? 0} 道)`}
               </button>
             </div>
           </Box>

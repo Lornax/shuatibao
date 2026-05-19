@@ -6,6 +6,7 @@ import { db, schema } from '../db/client.js';
 import type { AuthVars } from '../middleware/auth.js';
 import { chunkPdfText } from '../lib/pdf-chunker.js';
 import { processPdfImportJob, cancelJob } from '../lib/import-worker.js';
+import { processAiGenJob } from '../lib/ai-gen-worker.js';
 import { candidateArraySchema } from '../ai/parser.js';
 import { getSignedUrl, isCosEnabled, uploadPdfToCOS } from '../lib/cos.js';
 // pdf-parse has no types; runtime import OK
@@ -172,6 +173,74 @@ router.post('/profiles/:pid/import-jobs', async (c) => {
   });
 
   return c.json({ jobId: job.id, totalChunks: job.totalChunks }, 201);
+});
+
+// AI 批量出题: 后端 worker 串行调 LLM, 用户离开页面也继续跑
+const aiGenSchema = z.object({
+  knowledge: z.string().min(1).max(500),
+  difficulty: z.number().int().min(1).max(5).default(2),
+  chapter: z.string().max(100).optional(),
+  topics: z.string().max(200).optional(),
+  count: z.number().int().min(1).max(10),
+});
+
+router.post('/profiles/:pid/ai-gen-jobs', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+
+  // 单档案下限制并发: 同时只能有 1 个 ai_gen job
+  const inflight = await db
+    .select({ id: schema.importJobs.id })
+    .from(schema.importJobs)
+    .where(
+      and(
+        eq(schema.importJobs.profileId, pid),
+        eq(schema.importJobs.kind, 'ai_gen'),
+        inArray(schema.importJobs.status, ['pending', 'running'] as const),
+      ),
+    )
+    .limit(1);
+  if (inflight.length > 0) {
+    return c.json({ error: 'ai_gen_in_progress', jobId: inflight[0].id }, 409);
+  }
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = aiGenSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: 'invalid_body', details: parsed.error.flatten() }, 400);
+
+  const { count, ...params } = parsed.data;
+  const filenameLabel = [
+    'AI 出题',
+    params.chapter ? `章节·${params.chapter}` : '',
+    params.topics ? `考点·${params.topics.slice(0, 30)}` : '',
+    `${count} 道`,
+    `难度 ${'★'.repeat(params.difficulty)}`,
+  ].filter(Boolean).join(' · ');
+
+  const [job] = await db
+    .insert(schema.importJobs)
+    .values({
+      profileId: pid,
+      userId,
+      kind: 'ai_gen',
+      status: 'pending',
+      filename: filenameLabel,
+      totalChunks: count,
+      doneChunks: 0,
+      chunks: [],
+      candidates: [],
+      params,
+    })
+    .returning({ id: schema.importJobs.id });
+
+  setImmediate(() => {
+    processAiGenJob(job.id).catch((e) =>
+      console.error('[ai-gen] uncaught worker error', job.id, e),
+    );
+  });
+
+  return c.json({ jobId: job.id, total: count }, 201);
 });
 
 // 上传前查重: 同档案 + 同 filename + 同 size 是否有已结束的 job

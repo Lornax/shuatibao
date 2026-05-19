@@ -8,7 +8,7 @@ import { Input } from '../components/Input';
 import { Layout } from '../components/Layout';
 
 type Mode = 'chapter' | 'topics' | 'random';
-const CHAPTER_PREFIX = '章节:';
+// CHAPTER_PREFIX 现在由后端 worker 注入 tag, 前端不再用
 
 export function QuestionFromPrompt() {
   const { pid } = useParams<{ pid: string }>();
@@ -35,6 +35,7 @@ export function QuestionFromPrompt() {
   });
   const [doneSummary, setDoneSummary] = useState<{ ok: number; failed: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [, setJobId] = useState<string | null>(null);
   const cancelRef = useRef(false);
 
   useEffect(() => {
@@ -42,6 +43,21 @@ export function QuestionFromPrompt() {
     api.listTags(pid).then(setHistoryTags).catch(() => setHistoryTags([]));
     api.listProfileChapters(pid).then((r) => setBookChapters(r.chapters)).catch(() => setBookChapters([]));
     api.getProfile(pid).then((p) => setExamName(p.examName)).catch(() => setExamName(''));
+    // 进页面时检测有没有 in-flight 的 AI 出题任务, 有就接着展示进度
+    api
+      .listImportJobs(pid, ['pending', 'running'])
+      .then((r) => {
+        const aiGen = r.jobs.find((j) => j.kind === 'ai_gen');
+        if (aiGen) {
+          cancelRef.current = false;
+          setRunning(true);
+          setJobId(aiGen.id);
+          setProgress({ done: aiGen.doneChunks, total: aiGen.totalChunks, failed: 0 });
+          pollJob(aiGen.id);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pid]);
 
   function appendTopic(tag: string) {
@@ -73,34 +89,7 @@ export function QuestionFromPrompt() {
     };
   }
 
-  async function runOne(
-    excludeStems: string[],
-  ): Promise<{ ok: true; stem: string } | { ok: false; msg: string }> {
-    const payload = buildPayload();
-    if ('error' in payload) return { ok: false, msg: payload.error };
-    try {
-      const { candidate } = await api.parsePrompt(pid!, {
-        ...payload,
-        difficulty,
-        excludeStems: excludeStems.length > 0 ? excludeStems : undefined,
-      });
-      const tags = chapter.trim()
-        ? [...(candidate.tags || []), CHAPTER_PREFIX + chapter.trim()]
-        : candidate.tags || [];
-      await api.createQuestion(pid!, {
-        stem: candidate.stem,
-        options: candidate.options,
-        answer: candidate.answer,
-        explanation: candidate.explanation ?? undefined,
-        tags,
-        difficulty: candidate.difficulty,
-        source: 'ai_gen',
-      });
-      return { ok: true, stem: candidate.stem };
-    } catch (e) {
-      return { ok: false, msg: String(e) };
-    }
-  }
+  // 旧的 client 串行 runOne 不再使用 (改为后端 worker), 留作历史参考被删除
 
   async function go() {
     // 单题：还是走 confirm 页让用户确认（沿用旧体验）
@@ -121,30 +110,69 @@ export function QuestionFromPrompt() {
       return;
     }
 
-    // 批量：client 串行调 count 次, 每次直接入库
+    // 批量: 后端 worker 跑, 前端只发任务 + 轮询. 用户走开/刷新不影响.
+    const payload = buildPayload();
+    if ('error' in payload) return setError(payload.error);
     setError(null);
     setDoneSummary(null);
     cancelRef.current = false;
     setRunning(true);
     setProgress({ done: 0, total: count, failed: 0 });
+    setJobId(null);
 
-    let ok = 0;
-    let failed = 0;
-    const generatedStems: string[] = [];
-    for (let i = 0; i < count; i++) {
-      if (cancelRef.current) break;
-      const r = await runOne(generatedStems);
-      if (r.ok) {
-        ok++;
-        generatedStems.push(r.stem);
-      } else {
-        failed++;
-        console.error('[batch-gen]', r.msg);
-      }
-      setProgress({ done: ok + failed, total: count, failed });
+    let jid: string;
+    try {
+      const res = await api.createAiGenJob(pid!, { ...payload, difficulty, count });
+      jid = res.jobId;
+      setJobId(jid);
+    } catch (e) {
+      setError(String(e));
+      setRunning(false);
+      return;
     }
-    setRunning(false);
-    setDoneSummary({ ok, failed });
+    // 启动轮询
+    pollJob(jid);
+  }
+
+  async function pollJob(jid: string) {
+    while (true) {
+      if (cancelRef.current) {
+        try {
+          await api.deleteImportJob(pid!, jid);
+        } catch (e) {
+          console.warn('cancel ai-gen job failed', e);
+        }
+        setRunning(false);
+        return;
+      }
+      let job;
+      try {
+        job = await api.getImportJob(pid!, jid);
+      } catch (e) {
+        await new Promise((r) => setTimeout(r, 2000));
+        continue;
+      }
+      const total = job.totalChunks;
+      const done = job.doneChunks;
+      const candidatesCount = Array.isArray(job.candidates) ? job.candidates.length : 0;
+      const failed = done - candidatesCount;
+      setProgress({ done, total, failed: Math.max(0, failed) });
+      if (job.status === 'completed') {
+        setRunning(false);
+        setDoneSummary({ ok: candidatesCount, failed: Math.max(0, total - candidatesCount) });
+        return;
+      }
+      if (job.status === 'failed') {
+        setRunning(false);
+        if (candidatesCount > 0) {
+          setDoneSummary({ ok: candidatesCount, failed: total - candidatesCount });
+        } else {
+          setError(job.error || '出题任务失败');
+        }
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
   }
 
   function cancel() {

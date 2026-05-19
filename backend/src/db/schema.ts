@@ -65,6 +65,8 @@ export const importJobs = pgTable('import_jobs', {
   fileSize: integer('file_size').default(0).notNull(),
   // sha256 of PDF bytes, 同 hash 直接复用之前的 candidates 不调 LLM
   contentHash: text('content_hash'),
+  // kind='ai_gen' 时存出题参数 (mode/knowledge/chapter/topics/difficulty/profileId 等)
+  params: jsonb('params'),
   // chunks 是原始切分文本数组, 持久化用于重启后断点续传 (worker 从 doneChunks 起继续)
   chunks: jsonb('chunks').$type<string[]>().default([]).notNull(),
   candidates: jsonb('candidates').$type<unknown[]>().default([]).notNull(),
