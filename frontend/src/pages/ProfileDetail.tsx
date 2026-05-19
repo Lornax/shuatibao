@@ -156,6 +156,48 @@ export function ProfileDetail() {
         </Link>
       )}
 
+      {/* 框 2: 档案目标 + 今日进度 — 紧接入口语之后讲今日完成情况 */}
+      {profile && stats ? (
+        <Box
+          variant="thick"
+          className={`p-3 mb-3 ${goalReached ? 'bg-chip-green' : 'bg-chip-cream'}`}
+        >
+          <div className="font-cn text-xs text-ink-2 mb-1">
+            {profile.examDate
+              ? `📅 ${new Date(profile.examDate).toLocaleDateString('zh-CN')}${
+                  stats.daysUntilExam != null
+                    ? stats.daysUntilExam >= 0
+                      ? ` · 距考 ${stats.daysUntilExam} 天`
+                      : ` · 考期已过 ${-stats.daysUntilExam} 天`
+                    : ''
+                }`
+              : '未设考试日期'}
+          </div>
+          {profile.target && (
+            <div className="font-cn text-sm mb-2">🎯 {profile.target}</div>
+          )}
+          <div className="font-cn text-xs font-bold mb-1.5">
+            {goalReached && <span className="mr-1">🎉</span>}
+            {goalView === 'minutes' ? '⏱ 今日时长' : '📝 今日题数'} ·{' '}
+            {goalView === 'minutes'
+              ? `${goalDone} / ${goalTarget} 分钟`
+              : `${goalDone} / ${goalTarget} 题`}
+            {goalReached && <span className="text-accent4 ml-1">已达成</span>}
+          </div>
+          <div className="w-full h-3 bg-paperWarm border border-ink rounded-full overflow-hidden">
+            <div
+              className="h-full transition-all"
+              style={{
+                width: `${goalPct}%`,
+                background: goalReached ? '#6ba368' : '#c14d2e',
+              }}
+            />
+          </div>
+        </Box>
+      ) : (
+        <SkeletonHeader />
+      )}
+
       {tbSummary && (
         <Link to={`/profiles/${pid}/textbooks`} className="block mb-3">
           <Box variant="soft" className="p-2 bg-chip-blue flex items-center gap-2">
@@ -213,48 +255,6 @@ export function ProfileDetail() {
             );
           })}
         </div>
-      )}
-
-      {/* 框 3: 档案目标 + 今日进度 (合并) */}
-      {profile && stats ? (
-        <Box
-          variant="thick"
-          className={`p-3 mb-3 ${goalReached ? 'bg-chip-green' : 'bg-chip-cream'}`}
-        >
-          <div className="font-cn text-xs text-ink-2 mb-1">
-            {profile.examDate
-              ? `📅 ${new Date(profile.examDate).toLocaleDateString('zh-CN')}${
-                  stats.daysUntilExam != null
-                    ? stats.daysUntilExam >= 0
-                      ? ` · 距考 ${stats.daysUntilExam} 天`
-                      : ` · 考期已过 ${-stats.daysUntilExam} 天`
-                    : ''
-                }`
-              : '未设考试日期'}
-          </div>
-          {profile.target && (
-            <div className="font-cn text-sm mb-2">🎯 {profile.target}</div>
-          )}
-          <div className="font-cn text-xs font-bold mb-1.5">
-            {goalReached && <span className="mr-1">🎉</span>}
-            {goalView === 'minutes' ? '⏱ 今日时长' : '📝 今日题数'} ·{' '}
-            {goalView === 'minutes'
-              ? `${goalDone} / ${goalTarget} 分钟`
-              : `${goalDone} / ${goalTarget} 题`}
-            {goalReached && <span className="text-accent4 ml-1">已达成</span>}
-          </div>
-          <div className="w-full h-3 bg-paperWarm border border-ink rounded-full overflow-hidden">
-            <div
-              className="h-full transition-all"
-              style={{
-                width: `${goalPct}%`,
-                background: goalReached ? '#6ba368' : '#c14d2e',
-              }}
-            />
-          </div>
-        </Box>
-      ) : (
-        <SkeletonHeader />
       )}
 
       <div className="grid grid-cols-2 gap-2 mb-4">
