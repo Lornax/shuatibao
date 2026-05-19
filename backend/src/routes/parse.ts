@@ -24,12 +24,22 @@ async function ownProfile(profileId: string, userId: string) {
   return row && row.userId === userId;
 }
 
+async function getProfileForExamName(profileId: string) {
+  const [row] = await db
+    .select({ examName: schema.profiles.examName })
+    .from(schema.profiles)
+    .where(eq(schema.profiles.id, profileId))
+    .limit(1);
+  return row;
+}
+
 // POST /api/profiles/:pid/parse/image
 // multipart/form-data with field "image" (File)
 router.post('/profiles/:pid/parse/image', async (c) => {
   const userId = c.get('userId');
   const pid = c.req.param('pid');
   if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+  const profile = await getProfileForExamName(pid);
 
   const form = await c.req.formData().catch(() => null);
   const file = form?.get('image');
@@ -41,7 +51,7 @@ router.post('/profiles/:pid/parse/image', async (c) => {
   const dataUrl = `data:${file.type};base64,${buf.toString('base64')}`;
 
   try {
-    const candidate = await recognizeQuestionFromImage(dataUrl);
+    const candidate = await recognizeQuestionFromImage(dataUrl, profile?.examName);
     return c.json({ candidate, source: 'photo' });
   } catch (e) {
     return c.json({ error: 'ai_failed', detail: String(e) }, 502);
@@ -61,6 +71,7 @@ router.post('/profiles/:pid/parse/prompt', async (c) => {
   const userId = c.get('userId');
   const pid = c.req.param('pid');
   if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+  const profile = await getProfileForExamName(pid);
 
   const body = await c.req.json().catch(() => null);
   const parsed = promptSchema.safeParse(body);
@@ -99,6 +110,7 @@ router.post('/profiles/:pid/parse/prompt', async (c) => {
       parsed.data.topics,
       textbookReference,
       parsed.data.excludeStems,
+      profile?.examName,
     );
     return c.json({ candidate, source: 'ai_gen' });
   } catch (e) {
@@ -110,6 +122,7 @@ router.post('/profiles/:pid/parse/pdf', async (c) => {
   const userId = c.get('userId');
   const pid = c.req.param('pid');
   if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+  const profile = await getProfileForExamName(pid);
 
   const form = await c.req.formData().catch(() => null);
   const file = form?.get('pdf');
@@ -135,7 +148,7 @@ router.post('/profiles/:pid/parse/pdf', async (c) => {
   if (text.length > MAX) text = text.slice(0, MAX);
 
   try {
-    const candidates = await structureQuestionsFromPdfText(text);
+    const candidates = await structureQuestionsFromPdfText(text, { examName: profile?.examName });
     return c.json({ candidates, source: 'pdf', count: candidates.length });
   } catch (e) {
     return c.json({ error: 'ai_failed', detail: String(e) }, 502);

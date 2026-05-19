@@ -37,7 +37,7 @@ router.post('/questions/:qid/solve', async (c) => {
   if (!row || row.p.userId !== userId) return c.json({ error: 'not_found' }, 404);
 
   try {
-    const r = await solveQuestion(row.q.stem, row.q.options);
+    const r = await solveQuestion(row.q.stem, row.q.options, row.p.examName);
     return c.json(r);
   } catch (e) {
     return c.json({ error: 'ai_failed', detail: String(e) }, 502);

@@ -27,7 +27,7 @@ export function ProfileCreate() {
   const { pid } = useParams<{ pid?: string }>();
   const isEdit = !!pid;
 
-  const [examName, setExamName] = useState('NPDP');
+  const [examName, setExamName] = useState('');
   const [target, setTarget] = useState('');
   const [examDate, setExamDate] = useState('');
   const [dailyMinutes, setDailyMinutes] = useState(60);

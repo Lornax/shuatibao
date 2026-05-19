@@ -28,6 +28,14 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
     return;
   }
 
+  // 拉档案的 examName, 注入 prompt 让 LLM 按这个考试角度解题/写解析
+  const [profileRow] = await db
+    .select({ examName: schema.profiles.examName })
+    .from(schema.profiles)
+    .where(eq(schema.profiles.id, job.profileId))
+    .limit(1);
+  const examName = profileRow?.examName;
+
   const startIndex = job.doneChunks ?? 0;
   const candidates: CandidateQuestion[] = ((job.candidates ?? []) as CandidateQuestion[]).slice();
 
@@ -53,7 +61,7 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
     for (let i = startIndex; i < chunks.length; i++) {
       const chunk = chunks[i];
       const t0 = Date.now();
-      const part = await structureQuestionsFromPdfText(chunk, { signal: abortCtl.signal });
+      const part = await structureQuestionsFromPdfText(chunk, { signal: abortCtl.signal, examName });
       const dt = Date.now() - t0;
       console.log(
         `[import-jobs ${jobId.slice(0, 8)}] chunk ${i + 1}/${chunks.length}: ${chunk.length} chars → ${part.length} items (${dt}ms)`,

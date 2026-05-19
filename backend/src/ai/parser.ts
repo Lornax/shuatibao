@@ -8,7 +8,7 @@ export const candidateQuestionSchema = z.object({
     .max(8),
   answer: z.string().max(20).default(''),
   explanation: z.string().max(2000).default(''),
-  tags: z.array(z.string().max(30)).max(10).default(['NPDP']),
+  tags: z.array(z.string().max(30)).max(10).default([]),
   difficulty: z.number().int().min(1).max(5).default(2),
 });
 
