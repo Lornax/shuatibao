@@ -170,14 +170,30 @@ export function ProfileDetail() {
         <div className="mb-3 space-y-2">
           {inflightJobs.map((j) => {
             const isRunning = j.status === 'pending' || j.status === 'running';
-            const to = isRunning
-              ? `/profiles/${pid}/import-jobs/${j.id}`
-              : `/profiles/${pid}/import-jobs/${j.id}/review`;
+            const isAiGen = j.kind === 'ai_gen';
+            // AI 出题 (已入库) 跑中 → 跳出题页恢复进度; 完成 → 跳题库; PDF 完成 → review
+            const to = isAiGen
+              ? isRunning
+                ? `/profiles/${pid}/questions/from-prompt`
+                : `/profiles/${pid}/library`
+              : isRunning
+                ? `/profiles/${pid}/import-jobs/${j.id}`
+                : `/profiles/${pid}/import-jobs/${j.id}/review`;
             const tagClass = isRunning ? 'bg-chip-blue' : 'bg-chip-green';
-            const tagLabel = isRunning ? 'PDF 解析中' : `${j.candidatesCount} 道待审`;
-            const subLine = isRunning
-              ? `${j.doneChunks} / ${j.totalChunks} 批 · 已识别 ${j.candidatesCount} 题`
-              : `共 ${j.candidatesCount} 道，点击继续审`;
+            const tagLabel = isAiGen
+              ? isRunning
+                ? 'AI 出题中'
+                : `已生成 ${j.candidatesCount} 道`
+              : isRunning
+                ? 'PDF 解析中'
+                : `${j.candidatesCount} 道待审`;
+            const subLine = isAiGen
+              ? isRunning
+                ? `${j.doneChunks} / ${j.totalChunks} 道 · 已入题库`
+                : `共 ${j.candidatesCount} 道, 点击去题库查看`
+              : isRunning
+                ? `${j.doneChunks} / ${j.totalChunks} 批 · 已识别 ${j.candidatesCount} 题`
+                : `共 ${j.candidatesCount} 道，点击继续审`;
             return (
               <Link key={j.id} to={to}>
                 <Box variant="thick" className="p-2 bg-chip-cream flex items-center gap-2">

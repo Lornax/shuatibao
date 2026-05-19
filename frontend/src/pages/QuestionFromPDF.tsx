@@ -52,10 +52,11 @@ export function QuestionFromPDF() {
       // 按时间倒序, 只展示有意义的 (candidates>0 或仍在跑或可续传)
       const meaningful = r.jobs.filter(
         (j) =>
-          j.status === 'pending' ||
-          j.status === 'running' ||
-          j.candidatesCount > 0 ||
-          (j.status === 'failed' && j.doneChunks < j.totalChunks),
+          j.kind === 'pdf' && // PDF 导入页只显示 PDF 任务, AI 出题任务不在这里
+          (j.status === 'pending' ||
+            j.status === 'running' ||
+            j.candidatesCount > 0 ||
+            (j.status === 'failed' && j.doneChunks < j.totalChunks)),
       );
       setJobs(meaningful);
     } catch (e) {
