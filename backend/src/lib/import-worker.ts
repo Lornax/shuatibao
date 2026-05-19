@@ -112,22 +112,38 @@ async function markFailed(jobId: string, reason: string) {
 
 /**
  * 启动时把所有 pending/running 的 jobs 重新调度 (断点续传).
- * 取消旧的 "标 failed" 策略 — worker 全部读 db, 重启天然安全.
+ * 按 kind 分发到对应 worker: pdf 走 processPdfImportJob, ai_gen 走 processAiGenJob.
  */
 export async function selfHealOnBoot(): Promise<number> {
+  // 动态 import 避免循环依赖 (ai-gen-worker 也可能 import 此文件)
+  const { processAiGenJob } = await import('./ai-gen-worker.js');
   const stale = await db
-    .select({ id: schema.importJobs.id, doneChunks: schema.importJobs.doneChunks, totalChunks: schema.importJobs.totalChunks })
+    .select({
+      id: schema.importJobs.id,
+      kind: schema.importJobs.kind,
+      doneChunks: schema.importJobs.doneChunks,
+      totalChunks: schema.importJobs.totalChunks,
+    })
     .from(schema.importJobs)
     .where(sql`${schema.importJobs.status} in ('pending', 'running')`);
   for (const row of stale) {
     console.log(
-      `[import-jobs ${row.id.slice(0, 8)}] self-heal resume @ ${row.doneChunks}/${row.totalChunks}`,
+      `[${row.kind} ${row.id.slice(0, 8)}] self-heal resume @ ${row.doneChunks}/${row.totalChunks}`,
     );
-    setImmediate(() => {
-      processPdfImportJob(row.id).catch((e) =>
-        console.error('[import-jobs] resumed worker crashed', row.id, e),
-      );
-    });
+    if (row.kind === 'ai_gen') {
+      setImmediate(() => {
+        processAiGenJob(row.id).catch((e) =>
+          console.error('[ai-gen] resumed worker crashed', row.id, e),
+        );
+      });
+    } else {
+      // 默认 pdf (或其他 kind 暂时也走 pdf worker, 兼容老数据)
+      setImmediate(() => {
+        processPdfImportJob(row.id).catch((e) =>
+          console.error('[import-jobs] resumed worker crashed', row.id, e),
+        );
+      });
+    }
   }
   return stale.length;
 }
