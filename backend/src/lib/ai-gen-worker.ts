@@ -101,6 +101,14 @@ export async function processAiGenJob(jobId: string): Promise<void> {
   const candidates: CandidateQuestion[] = ((job.candidates ?? []) as CandidateQuestion[]).slice();
   const generatedStems: string[] = candidates.map((c) => c.stem);
 
+  // 拉档案 examName, 注入 prompt 让 LLM 按这个考试角度出题
+  const [profileRow] = await db
+    .select({ examName: schema.profiles.examName })
+    .from(schema.profiles)
+    .where(eq(schema.profiles.id, job.profileId))
+    .limit(1);
+  const examName = profileRow?.examName;
+
   await db
     .update(schema.importJobs)
     .set({ status: 'running', startedAt: job.startedAt ?? new Date() })
@@ -133,6 +141,7 @@ export async function processAiGenJob(jobId: string): Promise<void> {
           params.topics,
           undefined,
           generatedStems.length > 0 ? generatedStems : undefined,
+          examName,
         );
         const result = await persistOne(job.profileId, candidate, params.chapter);
         if ('id' in result) {

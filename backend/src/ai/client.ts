@@ -1,10 +1,10 @@
 import OpenAI from 'openai';
 import { config } from '../config.js';
 import {
-  VISION_RECOGNIZE_PROMPT,
-  PROMPT_GEN_PROMPT,
-  PDF_STRUCTURE_PROMPT,
-  SOLVE_PROMPT,
+  buildVisionRecognizePrompt,
+  buildPromptGenPrompt,
+  buildPdfStructurePrompt,
+  buildSolvePrompt,
 } from './prompts.js';
 import {
   parseCandidateOrThrow,
@@ -75,7 +75,10 @@ async function withFallback<T>(
   }
 }
 
-export async function recognizeQuestionFromImage(imageBase64DataUrl: string): Promise<CandidateQuestion> {
+export async function recognizeQuestionFromImage(
+  imageBase64DataUrl: string,
+  examName?: string,
+): Promise<CandidateQuestion> {
   const r = await withFallback(client, MODEL_VISION, codingClient, FB_VISION, 'vision', (c, m) =>
     c.chat.completions.create({
       model: m,
@@ -83,7 +86,7 @@ export async function recognizeQuestionFromImage(imageBase64DataUrl: string): Pr
         {
           role: 'user',
           content: [
-            { type: 'text', text: VISION_RECOGNIZE_PROMPT },
+            { type: 'text', text: buildVisionRecognizePrompt(examName) },
             { type: 'image_url', image_url: { url: imageBase64DataUrl } },
           ],
         },
@@ -102,6 +105,7 @@ export async function generateQuestionFromPrompt(
   topics?: string,
   textbookReference?: string,
   excludeStems?: string[],
+  examName?: string,
 ): Promise<CandidateQuestion> {
   const userMsgParts = [
     `知识点：${knowledge}`,
@@ -120,9 +124,10 @@ export async function generateQuestionFromPrompt(
     );
   }
   const userMsg = userMsgParts.join('\n');
+  const basePrompt = buildPromptGenPrompt(examName);
   const systemPrompt = textbookReference
-    ? `${PROMPT_GEN_PROMPT}\n\n${textbookReference}`
-    : PROMPT_GEN_PROMPT;
+    ? `${basePrompt}\n\n${textbookReference}`
+    : basePrompt;
   const r = await withFallback(client, MODEL_TEXT, codingClient, FB_TEXT, 'genPrompt', (c, model) =>
     c.chat.completions.create({
       model,
@@ -139,14 +144,14 @@ export async function generateQuestionFromPrompt(
 
 export async function structureQuestionsFromPdfText(
   pdfText: string,
-  opts: { signal?: AbortSignal } = {},
+  opts: { signal?: AbortSignal; examName?: string } = {},
 ): Promise<CandidateQuestion[]> {
   const r = await withFallback(client, MODEL_TEXT, codingClient, FB_TEXT, 'pdfStruct', (c, model) =>
     c.chat.completions.create(
       {
         model,
         messages: [
-          { role: 'system', content: PDF_STRUCTURE_PROMPT },
+          { role: 'system', content: buildPdfStructurePrompt(opts.examName) },
           { role: 'user', content: pdfText },
         ],
         temperature: 0.1,
@@ -161,6 +166,7 @@ export async function structureQuestionsFromPdfText(
 export async function solveQuestion(
   stem: string,
   options: { key: string; text: string }[],
+  examName?: string,
 ): Promise<{ answer: string; explanation: string }> {
   const optionsStr = options.map((o) => `${o.key}. ${o.text}`).join('\n');
   const r = await withFallback(client, MODEL_TEXT, codingClient, FB_TEXT, 'solve', (c, model) =>
@@ -169,7 +175,7 @@ export async function solveQuestion(
       messages: [
         {
           role: 'system',
-          content: SOLVE_PROMPT.replace('{stem}', stem).replace('{options}', optionsStr),
+          content: buildSolvePrompt(stem, optionsStr, examName),
         },
       ],
       temperature: 0.3,
