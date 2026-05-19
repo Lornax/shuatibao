@@ -85,12 +85,14 @@ export function ProfileDetail() {
       .listImportJobs(pid, ['pending', 'running', 'completed', 'failed'])
       .then((r) =>
         setInflightJobs(
-          r.jobs.filter(
-            (j) =>
-              j.status === 'pending' ||
-              j.status === 'running' ||
-              j.candidatesCount > 0,
-          ),
+          r.jobs.filter((j) => {
+            // 仍在跑的, 主页都要 hint
+            if (j.status === 'pending' || j.status === 'running') return true;
+            // PDF 已完成但还有 candidates 没审 → 主页显示"X 道待审" (要用户行动)
+            if (j.kind === 'pdf' && j.candidatesCount > 0) return true;
+            // AI 出题已完成 → 题已入库, 主页不再常驻提醒 (用户不需要再行动)
+            return false;
+          }),
         ),
       )
       .catch(() => setInflightJobs([]));
