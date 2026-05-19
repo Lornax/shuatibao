@@ -215,11 +215,9 @@ export function ProfileDetail() {
           {inflightJobs.map((j) => {
             const isRunning = j.status === 'pending' || j.status === 'running';
             const isAiGen = j.kind === 'ai_gen';
-            // AI 出题 (已入库) 跑中 → 跳出题页恢复进度; 完成 → 跳题库; PDF 完成 → review
+            // AI 出题题目实时入库, 跑中/完成都跳题库 (文案一致, 用户预期一致)
             const to = isAiGen
-              ? isRunning
-                ? `/profiles/${pid}/questions/from-prompt`
-                : `/profiles/${pid}/library`
+              ? `/profiles/${pid}/library`
               : isRunning
                 ? `/profiles/${pid}/import-jobs/${j.id}`
                 : `/profiles/${pid}/import-jobs/${j.id}/review`;
@@ -233,8 +231,8 @@ export function ProfileDetail() {
                 : `${j.candidatesCount} 道待审`;
             const subLine = isAiGen
               ? isRunning
-                ? `${j.doneChunks} / ${j.totalChunks} 道 · 已入题库`
-                : `共 ${j.candidatesCount} 道, 点击去题库查看`
+                ? `${j.doneChunks} / ${j.totalChunks} 道 · 点击去题库查看`
+                : `共 ${j.candidatesCount} 道 · 点击去题库查看`
               : isRunning
                 ? `${j.doneChunks} / ${j.totalChunks} 批 · 已识别 ${j.candidatesCount} 题`
                 : `共 ${j.candidatesCount} 道，点击继续审`;
