@@ -10,7 +10,7 @@ export async function resetDb() {
   await db.execute(sql`TRUNCATE attempts, questions, profiles, users RESTART IDENTITY CASCADE`);
   await db.insert(schema.users).values({
     id: TEST_USER_ID,
-    email: 'admin@example.com',
+    email: 'lornax@local',
     nickname: 'Lornax',
   });
 }

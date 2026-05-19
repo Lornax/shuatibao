@@ -15,7 +15,7 @@ async function seed() {
   const [user] = await db
     .insert(schema.users)
     .values({
-      email: 'admin@example.com',
+      email: 'lornax@local',
       nickname: 'Lornax',
     })
     .returning();
