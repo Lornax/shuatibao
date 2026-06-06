@@ -24,6 +24,16 @@ const schema = z.object({
   // 文本/视觉 LLM 用完时切. 向量模型这个套餐没有, embed 走 v3→v2 fallback.
   DASHSCOPE_CODING_API_KEY: z.string().optional(),
   DASHSCOPE_CODING_BASE_URL: z.string().default('https://coding.dashscope.aliyuncs.com/v1'),
+  // 硅基流动: 给 embedding 用. BAAI/bge-m3 永久免费, 1024 维兼容 dashscope text-embedding-v3/v4.
+  // RPM 2000 / TPM 500K, 对本项目用量完全够 (单本教材最多 100 个 batch).
+  SILICONFLOW_API_KEY: z.string().optional(),
+  SILICONFLOW_BASE_URL: z.string().default('https://api.siliconflow.cn/v1'),
+  // 小米 MiMo: 给 chat / text / vision 用 (mimo-v2.5-pro / mimo-v2.5). OpenAI 完全兼容.
+  // 没配时降级走 dashscope (现有 qwen-max / vl-max / deepseek-v3).
+  MIMO_API_KEY: z.string().optional(),
+  MIMO_BASE_URL: z.string().default('https://api.xiaomimimo.com/v1'),
 });
 
-export const config = schema.parse(process.env);
+const raw = schema.parse(process.env);
+
+export const config = raw;

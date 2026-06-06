@@ -171,7 +171,7 @@ SimilarPair   id, q1_id, q2_id, similarity(float), status(pending|merged|kept_bo
                       └──────────────┘
 ```
 
-**部署**：单台北京 VPS（CLAUDE.md 已记载：4核3.6G无swap，<your-vps-ip>）。前端构建产物 + 后端进程都跑这台。Postgres 也在同台（P1 数据量小，1 个用户）。
+**部署**：单台北京 VPS（CLAUDE.md 已记载：4核3.6G无swap，82.156.139.33）。前端构建产物 + 后端进程都跑这台。Postgres 也在同台（P1 数据量小，1 个用户）。
 
 **为什么不用 Next.js**：v2 的 React Compiler 雷在记忆里。Vite 启动快、心智简单、不引入 SSR/RSC 复杂度。MVP 阶段不需要 SEO（H5 备考工具登录后才能用）。
 

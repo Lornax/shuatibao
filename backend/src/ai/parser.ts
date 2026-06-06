@@ -10,6 +10,7 @@ export const candidateQuestionSchema = z.object({
   explanation: z.string().max(2000).default(''),
   tags: z.array(z.string().max(30)).max(10).default([]),
   difficulty: z.number().int().min(1).max(5).default(2),
+  type: z.enum(['single', 'multi', 'judge']).default('single'),
 });
 
 export type CandidateQuestion = z.infer<typeof candidateQuestionSchema>;

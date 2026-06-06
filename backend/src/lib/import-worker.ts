@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
-import { structureQuestionsFromPdfText } from '../ai/client.js';
+import { structureQuestionsFromPdfText, friendlyAIError } from '../ai/client.js';
 import type { CandidateQuestion } from '../ai/parser.js';
 
 // 进程内 aborters: cancelJob 用. 进程重启会清空, 重启后 worker 会注册新的
@@ -59,6 +59,7 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
 
   try {
     for (let i = startIndex; i < chunks.length; i++) {
+      if (abortCtl.signal.aborted) throw new Error('cancelled');
       const chunk = chunks[i];
       const t0 = Date.now();
       const part = await structureQuestionsFromPdfText(chunk, { signal: abortCtl.signal, examName });
@@ -74,6 +75,8 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
           candidates: candidates as unknown[],
         })
         .where(eq(schema.importJobs.id, jobId));
+
+      if (abortCtl.signal.aborted) throw new Error('cancelled');
 
       // 仅首次跑时检查 (resume 时 startIndex > 0, 已知前面有 candidates 或用户已确认继续)
       if (startIndex === 0 && i + 1 >= EARLY_ABORT_AFTER_CHUNKS && candidates.length === 0) {
@@ -101,7 +104,7 @@ export async function processPdfImportJob(jobId: string): Promise<void> {
       .update(schema.importJobs)
       .set({
         status: 'failed',
-        error: isAbort ? 'cancelled' : String(e),
+        error: isAbort ? 'cancelled' : friendlyAIError(e),
         finishedAt: new Date(),
         candidates: candidates as unknown[],
       })

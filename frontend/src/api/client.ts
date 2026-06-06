@@ -52,11 +52,14 @@ export type Profile = {
 };
 
 export type QuestionSource = 'photo' | 'manual' | 'pdf' | 'ai_gen';
+export type QuestionType = 'single' | 'multi' | 'judge';
 
 export type Question = {
   id: string;
   stem: string;
+  type: QuestionType;
   options: { key: string; text: string }[];
+  // single: "A"; multi: "A,C" (sorted); judge: "T"|"F"
   answer: string;
   explanation: string | null;
   tags: string[];
@@ -70,6 +73,7 @@ export type Question = {
 
 export type CandidateQuestion = {
   stem: string;
+  type?: QuestionType;
   options: { key: string; text: string }[];
   answer: string;
   explanation: string;
@@ -102,10 +106,21 @@ export type Textbook = {
   finishedAt: string | null;
 };
 
+export type FeedbackRow = {
+  id: string;
+  kind: 'user_text' | 'auto_error';
+  content: string;
+  context: { imageDataUrls?: string[]; url?: string; userAgent?: string } | null;
+  createdAt: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  imageData?: string | null;
+  linkedQuestionId?: string | null;
+  isNote?: boolean;
   createdAt: string;
 };
 
@@ -224,6 +239,7 @@ export const api = {
     pid: string,
     input: {
       stem: string;
+      type?: QuestionType;
       options: { key: string; text: string }[];
       answer: string;
       explanation?: string;
@@ -236,6 +252,18 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
+
+  parseImageDataUrl: (pid: string, dataUrl: string, conversationContext?: string) =>
+    request<{ candidate: CandidateQuestion; source: 'photo' }>(
+      `/profiles/${pid}/parse/image-data-url`,
+      { method: 'POST', body: JSON.stringify({ dataUrl, conversationContext }) },
+    ),
+
+  linkStudyMessage: (pid: string, mid: string, questionId: string) =>
+    request<{ ok: true; marker: ChatMessage }>(
+      `/profiles/${pid}/study-chat/messages/${mid}/link-question`,
+      { method: 'POST', body: JSON.stringify({ questionId }) },
+    ),
 
   parseImage: (pid: string, file: File) => {
     const fd = new FormData();
@@ -388,20 +416,29 @@ export const api = {
   listStudyChat: (pid: string) =>
     request<{ messages: ChatMessage[] }>(`/profiles/${pid}/study-chat`),
 
-  postStudyChat: (pid: string, content: string) =>
+  postStudyChat: (pid: string, content: string, imageDataUrl?: string) =>
     request<{ userMessage: ChatMessage; assistantMessage: ChatMessage }>(
       `/profiles/${pid}/study-chat`,
-      { method: 'POST', body: JSON.stringify({ content }) },
+      { method: 'POST', body: JSON.stringify({ content, imageDataUrl }) },
     ),
 
-  ensureStudyWelcome: (pid: string) =>
+  ensureStudyWelcome: (pid: string, language: 'zh' | 'en') =>
     request<{ message: ChatMessage | null; skipped: boolean }>(
       `/profiles/${pid}/study-chat/welcome`,
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({ language }) },
     ),
 
   clearStudyChat: (pid: string) =>
     request<{ ok: true }>(`/profiles/${pid}/study-chat`, { method: 'DELETE' }),
+
+  postFeedback: (input: { kind?: 'user_text' | 'auto_error'; content: string; context?: Record<string, unknown> }) =>
+    request<{ ok: true; id: string }>(`/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  listFeedback: () =>
+    request<{ feedbacks: FeedbackRow[] }>(`/feedback`),
 
   listTextbooks: (pid: string) =>
     request<{ textbooks: Textbook[] }>(`/profiles/${pid}/textbooks`),

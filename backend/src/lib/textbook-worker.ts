@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '../db/client.js';
-import { embed } from '../ai/client.js';
+import { embed, friendlyAIError } from '../ai/client.js';
 import { parseTextbook } from './textbook-parser.js';
 
 const bufsByJobId = new Map<string, Buffer>();
@@ -34,7 +34,7 @@ export async function processTextbook(textbookId: string): Promise<void> {
     );
 
     if (chunks.length === 0) {
-      await markFailed(textbookId, 'no_text_extracted');
+      await markFailed(textbookId, '啊哦，这份 PDF 里面都是图片，作者大大还没有钱开通批量识图功能 😅 用 smallpdf.com 或 WPS 的「OCR 识别」功能转一下，1-2 分钟搞定，转完重传试试吧！');
       return;
     }
 
@@ -102,7 +102,7 @@ export async function processTextbook(textbookId: string): Promise<void> {
     );
   } catch (e) {
     console.error(`[textbook ${textbookId.slice(0, 8)}] worker error`, e);
-    await markFailed(textbookId, String(e));
+    await markFailed(textbookId, friendlyAIError(e));
   } finally {
     bufsByJobId.delete(textbookId);
   }

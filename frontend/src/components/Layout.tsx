@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react';
+import { FeedbackButton } from './FeedbackButton';
+import { AnnouncementBell } from './AnnouncementBell';
+import { LanguageToggle } from '../i18n';
 
 export function Layout({ title, children, back }: { title: string; children: ReactNode; back?: () => void }) {
   return (
@@ -11,6 +14,9 @@ export function Layout({ title, children, back }: { title: string; children: Rea
             </button>
           )}
           <h1 className="font-display text-3xl flex-1">{title}</h1>
+          <LanguageToggle compact />
+          <AnnouncementBell />
+          <FeedbackButton />
         </header>
         {children}
       </div>

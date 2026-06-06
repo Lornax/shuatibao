@@ -3,29 +3,37 @@
 
 const fallbackExam = '本次考试';
 
-export const buildVisionRecognizePrompt = (examName: string = fallbackExam): string => `你是一个考试题目识别助手。输入是一张题目图片或一段题目文本。请识别题干、选项、正确答案、解析，返回严格的 JSON 格式：
+export const buildVisionRecognizePrompt = (examName: string = fallbackExam): string => `你是一个【${examName}】考试题目识别助手。输入是一张题目图片或一段题目文本。先识别题型, 再返回严格 JSON。
 
+题型 (type) 三选一:
+- "single": 单选题 (默认, 4 选 1 或 5 选 1)
+- "multi":  多选题 (题目明确说"多选"或"全选"或选项里有多个对的)
+- "judge":  判断题 (只有"对/错"两种, 或"正确/错误", 或 T/F)
+
+返回:
 {
+  "type": "single",
   "stem": "题干文本（不含选项）",
   "options": [
     {"key": "A", "text": "选项A文本"},
-    {"key": "B", "text": "选项B文本"},
-    {"key": "C", "text": "选项C文本"},
-    {"key": "D", "text": "选项D文本"}
+    {"key": "B", "text": "选项B文本"}
   ],
   "answer": "B",
-  "explanation": "解析（如果原文中有就用原文；如果没有，基于答案和选项自己写至少 50 字针对【${examName}】考点的解析，**不要返回空字符串**）",
+  "explanation": "至少 50 字针对【${examName}】考点的解析",
   "tags": [],
   "difficulty": 2
 }
 
-规则：
-- 只返回 JSON，不要 markdown 代码块，不要任何额外文字
-- options 数组长度 2-8 之间，按原题顺序
-- 如果原图明确标注了正确答案，answer 填对应 key（A/B/C/D）；如果没标注，answer 返回空字符串 ""，**不要编造**
-- difficulty 1-5（1 最简单，5 最难），凭借题目复杂度估
-- tags 留空数组（用户会自己加, 不要替用户决定标签）
-- 如果识别失败或图片不是题目，返回 {"error": "原因"}`;
+关键规则:
+- 只返回 JSON, 不要 markdown 代码块
+- **single/multi**: options 长度 2-8, key 用 A/B/C/D...
+  · single: answer = 单个 key, 如 "B"
+  · multi: answer = 排序后的 key 用英文逗号连接, 如 "A,C" 或 "A,B,D"
+- **judge**: options 固定 [{"key":"T","text":"对"},{"key":"F","text":"错"}], answer = "T" 或 "F"
+- 答案没标注就返回空字符串 "", **不要编造**
+- difficulty 1-5
+- tags 留空数组
+- 识别失败返回 {"error": "原因"}`;
 
 export const buildPromptGenPrompt = (examName: string = fallbackExam): string => `你是一个【${examName}】出题专家。根据用户给的知识点 + 上下文（教材章节、考点关键词），出一道高质量选择题。
 
@@ -53,12 +61,13 @@ export const buildPromptGenPrompt = (examName: string = fallbackExam): string =>
 - 如果用户提供了教材章节 / 考点关键词，紧扣这些信息出题
 - **如果系统消息后面附带了"教材片段"参考**：题干和 explanation 必须基于这些片段；在 explanation 末尾追加引用 [第X章·第Y页]（章节/页码取自教材片段的标注，不要编造）。让用户能溯源到教材原文`;
 
-export const buildPdfStructurePrompt = (examName: string = fallbackExam): string => `你是一个【${examName}】真题结构化助手。下面是一段从 PDF 中抽取的文本，里面可能包含 1 到多道选择题。请把每道题转成 JSON 数组：
+export const buildPdfStructurePrompt = (examName: string = fallbackExam): string => `你是一个【${examName}】真题结构化助手。下面文本可能含 1 到多道题, 题型可能是单选/多选/判断。请转成 JSON 数组:
 
 [
   {
+    "type": "single",
     "stem": "题干",
-    "options": [{"key": "A", "text": "..."}, ...],
+    "options": [{"key": "A", "text": "..."}],
     "answer": "B",
     "explanation": "",
     "tags": [],
@@ -66,13 +75,21 @@ export const buildPdfStructurePrompt = (examName: string = fallbackExam): string
   }
 ]
 
-规则：
-- 只返回 JSON 数组，不要 markdown
-- 如果文本里只有 1 道题，返回长度 1 的数组
-- 如果识别不出任何题，返回空数组 []
-- answer 如果原文有标注就填，没有就根据题目语境推断；推断不出就填空字符串 ""
-- explanation 原文有就填，没有就填空字符串
-- tags 留空数组, 不要替用户决定标签`;
+题型识别:
+- "single": 单选 (默认, 选 1 个)
+- "multi":  多选 (题面有"多选"/"全选"或多个正确选项)
+- "judge":  判断题 (只有对错两种, options 固定 [{"key":"T","text":"对"},{"key":"F","text":"错"}])
+
+answer 规则:
+- single: 单个 key, 如 "B"
+- multi: 排序后 key 逗号连接, 如 "A,C"
+- judge: "T" 或 "F"
+- 原文无标注则推断, 推断不出填空字符串
+
+规则:
+- 只返回 JSON 数组, 不要 markdown
+- 如识别不出任何题, 返回 []
+- explanation/tags 留空, 让用户/后端补`;
 
 export const buildSolvePrompt = (
   stem: string,

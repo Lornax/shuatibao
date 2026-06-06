@@ -11,6 +11,8 @@ export const importJobStatus = pgEnum('import_job_status', [
 export const chatRole = pgEnum('chat_role', ['user', 'assistant']);
 export const wrongbookSource = pgEnum('wrongbook_source', ['auto', 'manual']);
 export const goalType = pgEnum('goal_type', ['minutes', 'questions']);
+// 题型: single=单选, multi=多选, judge=判断 (options=[T/F]). short/blank 留给下次
+export const questionType = pgEnum('question_type', ['single', 'multi', 'judge', 'short', 'blank']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -40,7 +42,11 @@ export const questions = pgTable('questions', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
   stem: text('stem').notNull(),
+  // 题型. single (单选默认) / multi (多选 answer="A,C" 逗号分隔) / judge (T or F)
+  // short / blank 暂未启用
+  type: questionType('type').default('single').notNull(),
   options: jsonb('options').$type<{ key: string; text: string }[]>().notNull(),
+  // 单选/判断: 单字符 ("A" / "T"). 多选: 逗号分隔的有序大写字母 ("A,C")
   answer: text('answer').notNull(),
   explanation: text('explanation'),
   tags: jsonb('tags').$type<string[]>().default([]).notNull(),
@@ -121,6 +127,12 @@ export const studyChatMessages = pgTable('study_chat_messages', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   role: chatRole('role').notNull(),
   content: text('content').notNull(),
+  imageData: text('image_data'),
+  linkedQuestionId: uuid('linked_question_id'),
+  // 系统 marker (如「✓ 上述题目已加入题库」), 前端居中灰色样式渲染,
+  // 不是普通气泡; conversationContext 收集遇到即截断, 也作为
+  // chatStudy history 过滤已入库段的终点标记 (v0.0.10.1).
+  isNote: boolean('is_note').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   profileIdx: index('study_chat_profile_idx').on(t.profileId, t.createdAt),
@@ -163,4 +175,37 @@ export const textbookChunks = pgTable('textbook_chunks', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   profileIdx: index('textbook_chunks_profile_idx').on(t.profileId),
+}));
+
+// LLM 调用埋点. withFallback 成功路径里 fire-and-forget insert,
+// 失败不阻塞主流程. model 是实际命中的模型 (主或 fallback), kind 是用途 label
+// (vision / chat / text / embed / etc.). userId 暂不记 (后台 worker 调用无上下文).
+export const llmUsage = pgTable('llm_usage', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  model: text('model').notNull(),
+  kind: text('kind').notNull(),
+  inputTokens: integer('input_tokens').default(0).notNull(),
+  outputTokens: integer('output_tokens').default(0).notNull(),
+  totalTokens: integer('total_tokens').default(0).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  modelIdx: index('llm_usage_model_idx').on(t.model, t.createdAt),
+  createdIdx: index('llm_usage_created_idx').on(t.createdAt),
+}));
+
+export const feedbackKind = pgEnum('feedback_kind', ['user_text', 'auto_error']);
+
+// 用户反馈 + 自动错误上报. userId 可空 (未登录场景), onDelete=set null 保留审计痕迹.
+// context jsonb 装 {url, userAgent, viewport} 等 debug 用元信息.
+// resolved 给运营手动打勾 ("已处理"), 第一版没后台, 直接 psql 查表.
+export const feedbacks = pgTable('feedbacks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  kind: feedbackKind('kind').default('user_text').notNull(),
+  content: text('content').notNull(),
+  context: jsonb('context'),
+  resolved: boolean('resolved').default(false).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  createdIdx: index('feedbacks_created_idx').on(t.createdAt),
 }));

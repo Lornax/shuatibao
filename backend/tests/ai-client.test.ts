@@ -1,5 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { embed, cosineSimilarity, generateQuestionFromPrompt } from '../src/ai/client.js';
+import {
+  buildEmbeddingCreateParams,
+  embed,
+  cosineSimilarity,
+  generateQuestionFromPrompt,
+} from '../src/ai/client.js';
+
+describe('embedding request params', () => {
+  it('omits dimensions for SiliconFlow bge-m3', () => {
+    expect(buildEmbeddingCreateParams('BAAI/bge-m3', ['hello'])).toEqual({
+      model: 'BAAI/bge-m3',
+      input: ['hello'],
+    });
+  });
+
+  it('keeps dimensions for DashScope text-embedding-v4', () => {
+    expect(buildEmbeddingCreateParams('text-embedding-v4', ['hello'])).toEqual({
+      model: 'text-embedding-v4',
+      input: ['hello'],
+      dimensions: 1024,
+    });
+  });
+});
 
 const skip = !process.env.DASHSCOPE_API_KEY || process.env.SKIP_AI_TESTS === '1';
 

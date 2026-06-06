@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>AI 陪学 · 图片入库 · 原型</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Kalam:wght@700&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf6;
+    --ink: #1a1a1a;
+    --ink-2: #4a4a4a;
+    --ink-3: #888888;
+    --accent: #d94a3a;
+    --accent-2: #f4c542;
+    --accent-3: #4a7eb8;
+    --accent-4: #6ba368;
+    --chip-blue: #d4e4f4;
+    --chip-green: #d4e8d0;
+    --chip-pink: #f4d4d0;
+    --chip-cream: #fff8e6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px 64px;
+    background: #ede9dd;
+    font-family: "PingFang SC", "Noto Sans SC", sans-serif;
+    color: var(--ink);
+  }
+  h1.page-title {
+    font-family: 'Caveat', cursive;
+    font-size: 40px;
+    margin: 0 0 8px;
+  }
+  p.page-sub {
+    font-size: 13px; color: var(--ink-2); margin: 0 0 28px;
+    max-width: 720px; line-height: 1.6;
+  }
+  .row {
+    display: flex; gap: 28px; flex-wrap: wrap;
+  }
+  .frame { width: 340px; flex-shrink: 0; }
+  .frame > .label {
+    font-family: 'Caveat', cursive; font-size: 22px;
+    margin-bottom: 4px;
+  }
+  .frame > .desc {
+    font-size: 12px; color: var(--ink-2);
+    margin-bottom: 12px; line-height: 1.5;
+  }
+  .ios {
+    background: var(--paper);
+    border: 2.5px solid var(--ink);
+    border-radius: 28px;
+    box-shadow: 4px 4px 0 var(--ink);
+    height: 680px; overflow: hidden;
+    position: relative;
+    padding: 20px 16px 16px;
+  }
+  .ios .notch {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 96px; height: 22px; border-radius: 0 0 12px 12px;
+    background: var(--ink);
+  }
+  .ios .topbar {
+    display: flex; align-items: center; gap: 8px;
+    padding-top: 20px;
+    margin-bottom: 12px;
+  }
+  .ios .topbar .back {
+    font-family: 'Caveat', cursive; font-size: 20px;
+  }
+  .ios .topbar .title {
+    font-size: 15px; font-weight: 700;
+  }
+
+  /* 对话气泡 */
+  .bubble {
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 8px 10px;
+    font-size: 13px; line-height: 1.5;
+    max-width: 80%;
+    margin-bottom: 10px;
+  }
+  .bubble.ai { background: white; align-self: flex-start; }
+  .bubble.user { background: var(--chip-blue); align-self: flex-end; margin-left: auto; }
+  .bubble.system-hint {
+    background: var(--chip-cream); font-size: 11px;
+    border-style: dashed; max-width: 100%;
+  }
+  .bubble img.thumb {
+    display: block; width: 140px; height: auto;
+    border: 1.5px solid var(--ink); border-radius: 8px;
+    margin-top: 6px;
+  }
+  .chat-area {
+    display: flex; flex-direction: column;
+    height: 460px; overflow-y: auto;
+    margin-bottom: 10px;
+  }
+
+  /* 题目入库 CTA chip */
+  .cta-row {
+    margin: -4px 0 10px;
+    display: flex; gap: 6px;
+  }
+  .cta-chip {
+    background: var(--accent-2);
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: 2px 2px 0 var(--ink);
+    cursor: pointer;
+  }
+  .cta-chip.done {
+    background: var(--chip-green);
+    box-shadow: none;
+  }
+  .cta-chip.muted {
+    background: white; font-weight: 400;
+  }
+
+  /* 输入区 */
+  .input-zone {
+    border-top: 1.5px dashed var(--ink-3);
+    padding-top: 10px;
+  }
+  .input-zone .photo-row {
+    display: flex; gap: 6px; margin-bottom: 8px;
+  }
+  .input-zone .photo-btn {
+    flex: 1;
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    padding: 8px;
+    font-size: 12px;
+    background: white;
+    text-align: center;
+  }
+  .input-zone .text-row {
+    display: flex; gap: 6px; align-items: stretch;
+  }
+  .input-zone .input {
+    flex: 1;
+    border: 2px solid var(--ink); border-radius: 10px;
+    padding: 8px; min-height: 48px;
+    font-size: 12px;
+    background: white;
+    color: var(--ink-3);
+  }
+  .input-zone .send {
+    background: var(--accent);
+    color: white;
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    padding: 0 14px;
+    font-weight: 700;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+
+  /* 确认页 */
+  .field {
+    margin-bottom: 12px;
+  }
+  .field .lbl {
+    font-family: 'Caveat', cursive; font-size: 16px;
+    margin-bottom: 4px; color: var(--ink-2);
+  }
+  .field .val {
+    border: 2px solid var(--ink); border-radius: 10px;
+    padding: 8px; font-size: 12px; background: white;
+    line-height: 1.5;
+  }
+  .field .val.multiline { min-height: 36px; }
+  .opts .opt {
+    display: flex; gap: 6px; align-items: center;
+    padding: 4px 8px;
+    border: 1.5px solid var(--ink-3); border-radius: 8px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    background: white;
+  }
+  .opts .opt.correct {
+    background: var(--chip-green); border-color: var(--ink);
+  }
+  .opts .opt .k {
+    font-weight: 700; min-width: 16px;
+  }
+  .tag-row {
+    display: flex; gap: 4px; flex-wrap: wrap;
+  }
+  .tag-row .tag {
+    background: var(--chip-pink);
+    border: 1.5px solid var(--ink);
+    border-radius: 8px;
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+  .check-row {
+    display: flex; gap: 8px; align-items: center;
+    background: var(--chip-cream);
+    border: 2px dashed var(--ink);
+    border-radius: 10px;
+    padding: 8px;
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  .check-row .box {
+    width: 16px; height: 16px; border: 2px solid var(--ink);
+    background: var(--ink); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    border-radius: 4px;
+  }
+  .action-row {
+    display: flex; gap: 8px;
+  }
+  .action-row .primary {
+    flex: 1;
+    background: var(--accent); color: white;
+    border: 2px solid var(--ink); border-radius: 10px;
+    padding: 10px; font-weight: 700;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .action-row .ghost {
+    background: white;
+    border: 2px solid var(--ink); border-radius: 10px;
+    padding: 10px;
+    font-size: 12px;
+  }
+  .notes {
+    margin-top: 8px;
+    font-size: 11px; color: var(--ink-2); line-height: 1.6;
+  }
+  .notes b { color: var(--accent); }
+  .arrow {
+    font-family: 'Caveat', cursive;
+    font-size: 30px;
+    align-self: center;
+    margin-top: 280px;
+  }
+</style>
+</head>
+<body>
+  <h1 class="page-title">AI 陪学 → 一键把题加入题库 / 错题本</h1>
+  <p class="page-sub">
+    场景：用户在「AI 陪学」拍照/截图问 AI 一道题，AI 答完后下方挂一个 CTA chip「📚 加入题库」，点击跳「确认入库」页（复用现有拍照识题确认页），里面默认勾上「同时加入错题本」（陪学场景大多是不会做才问的）。保存后回到对话，CTA chip 变绿色「✓ 已入库」。
+  </p>
+
+  <div class="row">
+
+    <!-- Frame A -->
+    <div class="frame">
+      <div class="label">① AI 回复 + 入库 CTA</div>
+      <div class="desc">用户发图问 AI → AI 检测到题目结构 → 回复气泡下方挂入库 chip</div>
+      <div class="ios">
+        <div class="notch"></div>
+        <div class="topbar">
+          <span class="back">← 返回</span>
+          <span class="title">AI 陪学</span>
+        </div>
+        <div class="chat-area">
+          <div class="bubble system-hint">AI 知道你的题库情况、错题数和距考时间，可以问"今天该刷什么"、"我哪一章最弱"。</div>
+
+          <div class="bubble ai">Hi，距考还有 18 天，今天刷了 12 道（错 3 道）。要不要先把昨天的错题过一遍？</div>
+
+          <div class="bubble user">
+            帮我看看这道
+            <img class="thumb" src="https://placehold.co/400x200/fafaf6/1a1a1a?text=题目截图%0A产品经理在...%0AA.+xxx+++B.+xxx" alt="题目截图" />
+          </div>
+
+          <div class="bubble ai">
+            这道是单选题，考察"市场调研方法选择"。<br><br>
+            正确答案 <b>B</b>：定性访谈适合早期需求探索阶段，因为目标用户群尚未清晰，需要开放式问题…
+          </div>
+
+          <div class="cta-row">
+            <button class="cta-chip">📚 加入题库</button>
+            <button class="cta-chip muted">× 不用了</button>
+          </div>
+        </div>
+        <div class="input-zone">
+          <div class="text-row">
+            <div class="input">问 AI 陪学…</div>
+            <button class="send">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <!-- Frame B -->
+    <div class="frame">
+      <div class="label">② 确认入库</div>
+      <div class="desc">复用现有"拍照识题确认页"，底部加「同时加入错题本」勾选（默认勾上）</div>
+      <div class="ios">
+        <div class="notch"></div>
+        <div class="topbar">
+          <span class="back">← 返回</span>
+          <span class="title">确认入库</span>
+        </div>
+
+        <div class="field">
+          <div class="lbl">题干</div>
+          <div class="val multiline">产品经理在判断一个全新产品概念是否有市场时，最适合采用的调研方法是？</div>
+        </div>
+
+        <div class="field opts">
+          <div class="lbl">选项 · 正确答案 B</div>
+          <div class="opt"><span class="k">A.</span> 大样本问卷</div>
+          <div class="opt correct"><span class="k">B.</span> 定性访谈 ✓</div>
+          <div class="opt"><span class="k">C.</span> A/B 测试</div>
+          <div class="opt"><span class="k">D.</span> 销售数据回归</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">解析</div>
+          <div class="val multiline">定性访谈适合早期需求探索阶段…（AI 自动填）</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">标签</div>
+          <div class="tag-row">
+            <span class="tag">市场调研</span>
+            <span class="tag">定性方法</span>
+            <span class="tag">+</span>
+          </div>
+        </div>
+
+        <div class="check-row">
+          <div class="box">✓</div>
+          <span>同时加入错题本（陪学场景默认勾上）</span>
+        </div>
+
+        <div class="action-row">
+          <button class="primary">保存入库</button>
+          <button class="ghost">丢弃</button>
+        </div>
+
+        <div class="notes">
+          <b>说明：</b>这个页面就是现有的"拍照识题确认页"，只加了底部那个 ☑ checkbox + 一个返回链接（保存后回到陪学对话）。
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <!-- Frame C -->
+    <div class="frame">
+      <div class="label">③ 入库完成回到对话</div>
+      <div class="desc">CTA chip 变绿表示已入库，对话继续</div>
+      <div class="ios">
+        <div class="notch"></div>
+        <div class="topbar">
+          <span class="back">← 返回</span>
+          <span class="title">AI 陪学</span>
+        </div>
+        <div class="chat-area">
+          <div class="bubble user">
+            帮我看看这道
+            <img class="thumb" src="https://placehold.co/400x200/fafaf6/1a1a1a?text=题目截图" />
+          </div>
+          <div class="bubble ai">
+            这道是单选题…正确答案 <b>B</b>：定性访谈适合早期需求探索阶段…
+          </div>
+
+          <div class="cta-row">
+            <button class="cta-chip done">✓ 已入库 · 已加错题本</button>
+          </div>
+
+          <div class="bubble ai">还想问图里那个 C 选项为什么不对吗？</div>
+          <div class="bubble user">对，C 为啥不行</div>
+          <div class="bubble ai">A/B 测试需要已有用户基础和具体方案才能跑…</div>
+        </div>
+        <div class="input-zone">
+          <div class="text-row">
+            <div class="input">问 AI 陪学…</div>
+            <button class="send">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <h1 class="page-title" style="margin-top:48px;">关键设计决策</h1>
+  <ul style="font-size:13px; line-height:1.8; color:var(--ink-2); max-width:760px;">
+    <li><b style="color:var(--ink);">什么时候才显示 CTA？</b> 只有 ① 用户消息带图 ② 模型在回复里返回 <code>questionDetected: true</code> 时才显示。纯文字闲聊不显示，避免打扰。</li>
+    <li><b style="color:var(--ink);">为什么默认勾上"加入错题本"？</b> 陪学场景下用户来问 AI，大概率是不会做才问。给一个 checkbox 让他能反勾，比每次问"加哪里"省一步。</li>
+    <li><b style="color:var(--ink);">点"不用了" 会怎样？</b> CTA 行直接消失（前端 state 标记），不写库。AI 不会再追问。</li>
+    <li><b style="color:var(--ink);">已入库后能否撤销？</b> 不能直接撤。题已经在题库列表里，用户可以去题库管理删（已有功能）。</li>
+    <li><b style="color:var(--ink);">技术实现要点：</b> chatStudy 需要让模型在回复里附带结构化字段（如 <code>&lt;extracted-question&gt;{"stem":...}&lt;/extracted-question&gt;</code>），前端解析后渲染 CTA + 携带这份 JSON 跳确认页。图片要随之传过去（dataUrl 暂存 sessionStorage）。</li>
+  </ul>
+</body>
+</html>

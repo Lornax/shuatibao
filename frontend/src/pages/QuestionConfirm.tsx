@@ -14,6 +14,10 @@ type LocationState = {
   candidates?: CandidateQuestion[];
   source: QuestionSource;
   chapter?: string;
+  // 从 AI 陪学发起入库时, 用于回写 message 的 linkedQuestionId
+  studyMessageId?: string;
+  wrongbookByDefault?: boolean;
+  sourceMeta?: Record<string, unknown>;
 };
 
 const CHAPTER_PREFIX = '章节:';
@@ -96,6 +100,9 @@ export function QuestionConfirm() {
         source={state.source}
         bulkMode={bulkMode}
         prefillChapter={state.chapter}
+        studyMessageId={state.studyMessageId}
+        wrongbookByDefault={state.wrongbookByDefault}
+        sourceMeta={state.sourceMeta}
         onSavedNext={next}
         onSkip={next}
       />
@@ -109,6 +116,9 @@ export function ConfirmOne({
   source,
   bulkMode,
   prefillChapter,
+  studyMessageId,
+  wrongbookByDefault,
+  sourceMeta,
   onSavedNext,
   onSkip,
 }: {
@@ -117,15 +127,19 @@ export function ConfirmOne({
   source: QuestionSource;
   bulkMode: BulkMode;
   prefillChapter?: string;
+  studyMessageId?: string;
+  wrongbookByDefault?: boolean;
+  sourceMeta?: Record<string, unknown>;
   onSavedNext: () => void;
   onSkip: () => void;
 }) {
-  const KEYS = ['A', 'B', 'C', 'D'] as const;
+  // 判断题用 T/F, 其他用 A-D. 不跟着 type 走会导致 save 时后端校验 answer 不在 T/F 报 invalid_answer.
+  const KEYS: readonly string[] = candidate.type === 'judge' ? ['T', 'F'] : ['A', 'B', 'C', 'D'];
   const [stem, setStem] = useState(candidate.stem);
   const [optionTexts, setOptionTexts] = useState(() => {
-    const arr = ['', '', '', ''];
+    const arr = new Array(KEYS.length).fill('');
     candidate.options.forEach((o, i) => {
-      if (i < 4) arr[i] = o.text;
+      if (i < KEYS.length) arr[i] = o.text;
     });
     return arr;
   });
@@ -141,6 +155,8 @@ export function ConfirmOne({
   const [savedQuestion, setSavedQuestion] = useState<Question | null>(null);
   const [similar, setSimilar] = useState<SimilarQuestion[] | null>(null);
   const [historyTags, setHistoryTags] = useState<{ tag: string; cnt: number }[]>([]);
+  const [addToWrongbook, setAddToWrongbook] = useState(!!wrongbookByDefault);
+  const nav = useNavigate();
 
   useEffect(() => {
     api.listTags(pid).then(setHistoryTags).catch(() => setHistoryTags([]));
@@ -185,13 +201,28 @@ export function ConfirmOne({
     try {
       const res = await api.createQuestion(pid, {
         stem: stem.trim(),
+        type: candidate.type ?? 'single',
         options,
         answer,
         explanation: explanation.trim() || undefined,
         tags: combineTags(chapter, tagInput.split(',').map((s) => s.trim()).filter(Boolean)),
         difficulty,
         source,
+        sourceMeta,
       });
+      // 陪学入库流程: 把消息回写 linkedQuestionId, 可选加入错题本, 然后跳回陪学页
+      if (studyMessageId) {
+        try {
+          if (addToWrongbook) {
+            await api.addToWrongbook(res.question.id);
+          }
+          await api.linkStudyMessage(pid, studyMessageId, res.question.id);
+        } catch (e) {
+          setError(`入库成功但回写陪学失败: ${e}`);
+        }
+        nav(`/profiles/${pid}/study-chat`);
+        return;
+      }
       if (res.similar.length > 0) {
         // 应用 bulkMode
         if (bulkMode === 'keep_all') {
@@ -339,6 +370,13 @@ export function ConfirmOne({
           ))}
         </div>
       </div>
+      {studyMessageId && (
+        <Box variant="dashed" className="p-2 bg-chip-cream flex items-center gap-2">
+          <Check checked={addToWrongbook} shape="box" onClick={() => setAddToWrongbook((v) => !v)} />
+          <span className="font-cn text-sm flex-1">同时加入错题本</span>
+          <span className="font-cn text-xs text-ink-3">陪学场景默认勾上</span>
+        </Box>
+      )}
       {error && (
         <Box variant="dashed" className="p-2">
           <p className="font-cn text-xs text-accent">{error}</p>

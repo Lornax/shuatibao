@@ -1,0 +1,1 @@
+ALTER TABLE "study_chat_messages" ADD COLUMN "is_note" boolean DEFAULT false NOT NULL;

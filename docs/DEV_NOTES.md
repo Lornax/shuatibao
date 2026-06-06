@@ -39,7 +39,7 @@ cp backend/.env.example backend/.env
 echo "VITE_API_TOKEN=<跟 backend/.env 的 API_TOKEN 同值>" > frontend/.env.local
 
 cd backend
-npx drizzle-kit migrate           # 应用 schema
+npx drizzle-kit@0.31.10 migrate   # 应用 schema
 npm run seed                      # 创建单用户，输出 SEED_USER_ID
 # 把输出的 SEED_USER_ID=xxx 贴进 backend/.env
 cd ..
@@ -217,7 +217,7 @@ git push shuatibao opensource:main
 ### 加新文件的两条铁律
 
 - **永远用 `.env` 存机密**，不在 source 里硬编
-- **新 doc 直接用占位符**（`<your-vps-ip>` / `<admin-user>`），不要等 merge 时再 sed 替换
+- **新 doc 直接用占位符**（`<your-vps-ip>` / `<server-user>`），不要等 merge 时再 sed 替换
 
 ### 紧急: 已经把 secret commit 上去了
 

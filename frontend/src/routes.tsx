@@ -19,6 +19,7 @@ import { TextbookList } from './pages/TextbookList';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Me } from './pages/Me';
+import { MyFeedback } from './pages/MyFeedback';
 
 function AuthLayout() {
   return (
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
       { path: '/login', element: publicOnly(<Login />) },
       { path: '/register', element: publicOnly(<Register />) },
       { path: '/me', element: guarded(<Me />) },
+      { path: '/me/feedback', element: guarded(<MyFeedback />) },
       { path: '/profiles', element: guarded(<ProfileList />) },
       { path: '/profiles/new', element: guarded(<ProfileCreate />) },
       { path: '/profiles/:pid/edit', element: guarded(<ProfileCreate />) },

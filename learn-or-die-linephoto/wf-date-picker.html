@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>考试日期选择器 · 两版对比</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Kalam:wght@700&family=Patrick+Hand&family=LXGW+WenKai+TC&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf6;
+    --ink: #1a1a1a;
+    --ink-2: #4a4a4a;
+    --ink-3: #888888;
+    --accent: #d94a3a;
+    --accent-2: #f4c542;
+    --accent-3: #4a7eb8;
+    --accent-4: #6ba368;
+    --chip-blue: #d4e4f4;
+    --chip-green: #d4e8d0;
+    --chip-pink: #f4d4d0;
+    --chip-cream: #fff8e6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px 64px;
+    background: #ede9dd;
+    font-family: "PingFang SC", "Noto Sans SC", sans-serif;
+    color: var(--ink);
+  }
+  h1.page-title { font-family: 'Caveat', cursive; font-size: 40px; margin: 0 0 8px; }
+  p.page-sub {
+    font-size: 13px; color: var(--ink-2); margin: 0 0 28px;
+    max-width: 720px; line-height: 1.6;
+  }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; }
+  .frame { width: 360px; flex-shrink: 0; }
+  .frame > .label { font-family: 'Caveat', cursive; font-size: 24px; margin-bottom: 4px; }
+  .frame > .desc { font-size: 12px; color: var(--ink-2); margin-bottom: 12px; line-height: 1.5; }
+  .ios {
+    background: var(--paper);
+    border: 2.5px solid var(--ink);
+    border-radius: 28px;
+    box-shadow: 4px 4px 0 var(--ink);
+    height: 720px; overflow: hidden;
+    position: relative;
+    padding: 20px 16px 16px;
+  }
+  .ios .notch {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 96px; height: 22px; border-radius: 0 0 12px 12px;
+    background: var(--ink);
+  }
+  .ios .topbar {
+    display: flex; align-items: center; gap: 8px;
+    padding-top: 20px;
+    margin-bottom: 12px;
+  }
+  .ios .back { font-family: 'Caveat', cursive; font-size: 20px; }
+  .ios .title { font-size: 15px; font-weight: 700; }
+  .field { margin-bottom: 12px; }
+  .field .lbl { font-family: 'PingFang SC'; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .field .val {
+    border: 2px solid var(--ink); border-radius: 10px;
+    padding: 8px 10px; font-size: 13px; background: white;
+  }
+  .field-row {
+    display: flex; gap: 8px;
+  }
+
+  /* ─── A: 内联月历 ─── */
+  .date-trigger {
+    border: 2px solid var(--ink); border-radius: 10px;
+    padding: 8px 10px; background: white;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer;
+  }
+  .date-trigger .picked { font-weight: 700; font-family: 'Kalam', sans-serif; }
+  .date-trigger .d-day {
+    background: var(--accent); color: white;
+    padding: 2px 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 700;
+    border: 1.5px solid var(--ink);
+    font-family: 'Kalam', sans-serif;
+  }
+  .cal-card {
+    margin-top: 6px;
+    border: 2px solid var(--ink); border-radius: 14px;
+    background: var(--paper);
+    padding: 10px;
+  }
+  .cal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .cal-nav-btn {
+    width: 28px; height: 28px;
+    border: 1.5px solid var(--ink); border-radius: 8px;
+    background: white;
+    font-family: 'Kalam', sans-serif;
+    cursor: pointer;
+  }
+  .cal-title { font-family: 'Caveat', cursive; font-size: 20px; font-weight: 700; }
+  .cal-week { display: grid; grid-template-columns: repeat(7, 1fr); font-size: 10px; color: var(--ink-3); text-align: center; margin-bottom: 4px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-cell {
+    aspect-ratio: 1;
+    border: 1.5px solid transparent; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'Kalam', sans-serif;
+  }
+  .cal-cell.dim { color: var(--ink-3); }
+  .cal-cell.today { border: 1.5px dashed var(--ink); font-weight: 700; }
+  .cal-cell.selected {
+    background: var(--accent-2);
+    border: 2px solid var(--ink);
+    box-shadow: 1.5px 1.5px 0 var(--ink);
+    font-weight: 700;
+  }
+  .cal-cell.weekend { color: var(--accent); }
+  .cal-footer {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1.5px dashed var(--ink-3);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: var(--ink-2);
+  }
+  .cal-clear { color: var(--accent); font-size: 11px; text-decoration: underline; cursor: pointer; }
+
+  /* ─── B: 三段独立按钮 ─── */
+  .seg-row {
+    display: flex; gap: 8px;
+  }
+  .seg-btn {
+    flex: 1;
+    border: 2px solid var(--ink); border-radius: 10px;
+    background: white; padding: 8px 6px;
+    display: flex; flex-direction: column; align-items: center;
+    cursor: pointer;
+  }
+  .seg-btn.active {
+    background: var(--accent-2);
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .seg-btn .num { font-family: 'Kalam', sans-serif; font-size: 18px; font-weight: 700; line-height: 1; }
+  .seg-btn .unit { font-size: 10px; color: var(--ink-3); margin-top: 2px; }
+  .seg-panel {
+    margin-top: 6px;
+    border: 2px solid var(--ink); border-radius: 12px;
+    background: var(--paper);
+    padding: 10px;
+    max-height: 220px; overflow-y: auto;
+  }
+  .seg-panel-title { font-family: 'Caveat', cursive; font-size: 16px; margin-bottom: 6px; color: var(--ink-2); }
+  .seg-options { display: grid; gap: 4px; }
+  .seg-options.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .seg-options.cols-6 { grid-template-columns: repeat(6, 1fr); }
+  .seg-opt {
+    padding: 6px;
+    border: 1.5px solid var(--ink-3); border-radius: 8px;
+    background: white;
+    text-align: center; font-size: 12px;
+    cursor: pointer;
+    font-family: 'Kalam', sans-serif;
+  }
+  .seg-opt.active {
+    background: var(--accent-2);
+    border-color: var(--ink);
+    border-width: 2px;
+    box-shadow: 1.5px 1.5px 0 var(--ink);
+    font-weight: 700;
+  }
+  .seg-opt.today { border-style: dashed; }
+
+  .summary {
+    background: var(--chip-cream);
+    border: 1.5px dashed var(--ink);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-family: 'Kalam', sans-serif;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 8px;
+  }
+  .summary .left { font-size: 13px; }
+  .summary .d-day-big {
+    background: var(--accent); color: white;
+    padding: 3px 10px; border-radius: 8px;
+    border: 1.5px solid var(--ink);
+    font-weight: 700; font-size: 13px;
+  }
+
+  .arrow {
+    font-family: 'Caveat', cursive;
+    font-size: 30px;
+    align-self: center;
+    margin-top: 280px;
+  }
+
+  .notes {
+    margin-top: 16px;
+    font-size: 12px; color: var(--ink-2); line-height: 1.7;
+    max-width: 360px;
+  }
+  .notes b { color: var(--accent); }
+</style>
+</head>
+<body>
+  <h1 class="page-title">考试日期选择器 · 两版对比</h1>
+  <p class="page-sub">
+    问题：原生 <code>&lt;input type="date"&gt;</code> 在手机上墨绿系统色 / 桌面白底，跟刷题宝整体手绘纸张风不搭。
+    两个候选都用手绘风格自绘 UI，不依赖原生组件。
+  </p>
+
+  <div class="row">
+
+    <!-- ═══════ A: 内联月历 ═══════ -->
+    <div class="frame">
+      <div class="label">① 内联月历</div>
+      <div class="desc">点输入框 → 下方展开月视图日历，月份导航 + 周末红色 + 今日虚框 + 选中黄底</div>
+      <div class="ios">
+        <div class="notch"></div>
+        <div class="topbar">
+          <span class="back">← 返回</span>
+          <span class="title">新建档案</span>
+        </div>
+
+        <div class="field">
+          <div class="lbl">考试名称</div>
+          <div class="val">CFA Level II</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">考试日期</div>
+          <div class="date-trigger">
+            <span class="picked">2026 年 8 月 23 日 周日</span>
+            <span class="d-day">D-88</span>
+          </div>
+          <div class="cal-card">
+            <div class="cal-header">
+              <button class="cal-nav-btn">‹</button>
+              <span class="cal-title">2026 年 8 月</span>
+              <button class="cal-nav-btn">›</button>
+            </div>
+            <div class="cal-week">
+              <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div style="color:var(--accent);">六</div><div style="color:var(--accent);">日</div>
+            </div>
+            <div class="cal-grid">
+              <div class="cal-cell dim">28</div>
+              <div class="cal-cell dim">29</div>
+              <div class="cal-cell dim">30</div>
+              <div class="cal-cell dim">31</div>
+              <div class="cal-cell">1</div>
+              <div class="cal-cell weekend">2</div>
+              <div class="cal-cell weekend">3</div>
+              <div class="cal-cell">4</div>
+              <div class="cal-cell">5</div>
+              <div class="cal-cell">6</div>
+              <div class="cal-cell">7</div>
+              <div class="cal-cell">8</div>
+              <div class="cal-cell weekend">9</div>
+              <div class="cal-cell weekend">10</div>
+              <div class="cal-cell">11</div>
+              <div class="cal-cell">12</div>
+              <div class="cal-cell">13</div>
+              <div class="cal-cell">14</div>
+              <div class="cal-cell">15</div>
+              <div class="cal-cell weekend">16</div>
+              <div class="cal-cell weekend">17</div>
+              <div class="cal-cell">18</div>
+              <div class="cal-cell">19</div>
+              <div class="cal-cell">20</div>
+              <div class="cal-cell">21</div>
+              <div class="cal-cell">22</div>
+              <div class="cal-cell weekend selected">23</div>
+              <div class="cal-cell weekend">24</div>
+              <div class="cal-cell">25</div>
+              <div class="cal-cell">26</div>
+              <div class="cal-cell">27</div>
+              <div class="cal-cell">28</div>
+              <div class="cal-cell">29</div>
+              <div class="cal-cell weekend">30</div>
+              <div class="cal-cell weekend">31</div>
+            </div>
+            <div class="cal-footer">
+              <span>今天 5 月 27 日</span>
+              <a class="cal-clear">× 清空日期</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="notes">
+        <b>优点：</b>一眼看到整月格局，能挑周末/避周末，今天虚线框做参照。<br>
+        <b>缺点：</b>纵向高，占位置。<br>
+        <b>选中后：</b>可加个「✓ 收起」按钮折叠日历，只留输入框。
+      </div>
+    </div>
+
+    <div class="arrow">vs</div>
+
+    <!-- ═══════ B: 三段独立按钮 ═══════ -->
+    <div class="frame">
+      <div class="label">② 三段独立按钮</div>
+      <div class="desc">年/月/日 三个 chip 横排，点中哪个就在下方展开选项；紧凑、垂直空间小</div>
+      <div class="ios">
+        <div class="notch"></div>
+        <div class="topbar">
+          <span class="back">← 返回</span>
+          <span class="title">新建档案</span>
+        </div>
+
+        <div class="field">
+          <div class="lbl">考试名称</div>
+          <div class="val">CFA Level II</div>
+        </div>
+
+        <div class="field">
+          <div class="lbl">考试日期</div>
+          <div class="seg-row">
+            <button class="seg-btn">
+              <span class="num">2026</span>
+              <span class="unit">年</span>
+            </button>
+            <button class="seg-btn active">
+              <span class="num">8</span>
+              <span class="unit">月</span>
+            </button>
+            <button class="seg-btn">
+              <span class="num">23</span>
+              <span class="unit">日</span>
+            </button>
+          </div>
+          <div class="seg-panel">
+            <div class="seg-panel-title">选月份</div>
+            <div class="seg-options cols-6">
+              <div class="seg-opt today">1</div>
+              <div class="seg-opt">2</div>
+              <div class="seg-opt">3</div>
+              <div class="seg-opt">4</div>
+              <div class="seg-opt">5</div>
+              <div class="seg-opt">6</div>
+              <div class="seg-opt">7</div>
+              <div class="seg-opt active">8</div>
+              <div class="seg-opt">9</div>
+              <div class="seg-opt">10</div>
+              <div class="seg-opt">11</div>
+              <div class="seg-opt">12</div>
+            </div>
+          </div>
+          <div class="summary">
+            <span class="left">📅 2026 年 8 月 23 日 周日</span>
+            <span class="d-day-big">D-88</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 24px; padding-top: 12px; border-top: 1.5px dashed var(--ink-3);">
+          <div class="seg-panel-title">点 [2026] 时展开年:</div>
+          <div class="seg-options cols-3" style="margin-bottom: 12px;">
+            <div class="seg-opt today">2026</div>
+            <div class="seg-opt active">2026</div>
+            <div class="seg-opt">2027</div>
+            <div class="seg-opt">2028</div>
+            <div class="seg-opt">2029</div>
+            <div class="seg-opt">2030</div>
+          </div>
+          <div class="seg-panel-title">点 [23] 时展开日:</div>
+          <div class="seg-options cols-6">
+            <div class="seg-opt">1</div>
+            <div class="seg-opt">2</div>
+            <div class="seg-opt">…</div>
+            <div class="seg-opt">21</div>
+            <div class="seg-opt">22</div>
+            <div class="seg-opt active">23</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="notes">
+        <b>优点：</b>紧凑、操作明确（一次只选一个维度）。<br>
+        <b>缺点：</b>看不到周末/工作日，要心算「8 月 23 是不是周日」。<br>
+        <b>选中后：</b>底部摘要条显示完整日期 + 周几 + D-day, 实时算。
+      </div>
+    </div>
+
+  </div>
+
+  <h1 class="page-title" style="margin-top:48px;">关键差异</h1>
+  <ul style="font-size:13px; line-height:1.8; color:var(--ink-2); max-width:760px;">
+    <li><b style="color:var(--ink);">A 内联月历</b>更适合"考试日期"这种用户希望<b style="color:var(--ink);">直观看见周末/工作日</b>的场景（备考节奏跟周末挂钩）</li>
+    <li><b style="color:var(--ink);">B 三段独立</b>更适合<b style="color:var(--ink);">只要选个日期没别的</b>的场景 (如填生日)，体积小但要心算周几</li>
+    <li>两个都<b style="color:var(--ink);">没有原生组件</b>，所以手机/桌面完全一致，墨绿色那个系统组件再也不会出现</li>
+    <li>两个都用纯 CSS + 一点点 JS，无新依赖 (不引 react-day-picker / antd 等)</li>
+  </ul>
+</body>
+</html>

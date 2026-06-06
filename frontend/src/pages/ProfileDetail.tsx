@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, type ImportJobSummary, type Profile, type Question, type Textbook } from '../api/client';
 import { Box } from '../components/Box';
 import { Layout } from '../components/Layout';
+import { useLanguage } from '../i18n';
 
 type StudyStats = {
   totalQuestions: number;
@@ -60,6 +61,7 @@ function computeNudge(stats: StudyStats | null): Nudge {
 export function ProfileDetail() {
   const { pid } = useParams<{ pid: string }>();
   const nav = useNavigate();
+  const { language } = useLanguage();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [questionsTotal, setQuestionsTotal] = useState<number | null>(null);
@@ -121,6 +123,13 @@ export function ProfileDetail() {
     day: 'numeric',
     weekday: 'short',
   });
+  const todayEn = new Date().toLocaleDateString('en-US', {
+    timeZone: 'Asia/Shanghai',
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+  });
+  const todayLabel = language === 'en' ? todayEn : todayCn;
 
   const title = profile ? profile.examName : '加载中';
 
@@ -149,7 +158,7 @@ export function ProfileDetail() {
             }`}
           >
             <p className="font-cn text-sm leading-relaxed">
-              <span className="text-ink-2">今天 {todayCn} · </span>
+              <span className="text-ink-2">{language === 'en' ? 'Today' : '今天'} {todayLabel} · </span>
               {nudge.text}
             </p>
           </Box>

@@ -1,0 +1,1 @@
+ALTER TABLE "study_chat_messages" ADD COLUMN "image_data" text;

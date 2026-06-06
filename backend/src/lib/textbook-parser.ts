@@ -25,7 +25,10 @@ const CHAPTER_RE = /(?:^|\n)\s*(第\s*[一二三四五六七八九十百零〇\d
 // 用于"提取章节号"
 const CHAPTER_NUM_RE = /第\s*([一二三四五六七八九十百零〇\d]+)\s*章|Chapter\s+(\d+)/;
 // 用于"提取干净标题"：章节号后紧跟的若干字符, 遇数字/英文 / 标点 / 多空格立即停
-const CHAPTER_TITLE_CLEAN_RE = /^(第\s*[一二三四五六七八九十百零〇\d]{1,4}\s*章|Chapter\s+\d+)\s*([一-龥　-〿·。、]{0,20})/;
+// 标题正则: 抓 "第 X 章" / "Chapter N" 前缀, 然后允许任意非控制字符直到换行/句号/段落标志.
+// 之前限定 CJK + 全角标点过严, 遇到半角空格就断, 导致 "第三章 数据类型" 被截成 "第三章 数".
+// 现在允许半角空格 + 数字 + 英文等, 但用 [^\n。．.；;] 排除明显的段落分隔符, 最多 30 字符.
+const CHAPTER_TITLE_CLEAN_RE = /^(第\s*[一二三四五六七八九十百零〇\d]{1,4}\s*章|Chapter\s+\d+)[\s:：]*([^\n\r。．；;]{0,30})/;
 const CN_DIGITS: Record<string, number> = {
   零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9,
 };
@@ -91,6 +94,11 @@ export async function parseTextbook(
 
   const result = await pdfParse(buf, { pagerender });
   const totalPages = result.numpages ?? pageOffsets.length;
+
+  // 某些 PDF (尤其图像式 / 异常编码) 提取后字符串夹杂 NUL (0x00) 字节, PostgreSQL text 字段不允许.
+  // 一次性 strip 掉, 影响所有下游 (chunk content / chapter title 等).
+  // eslint-disable-next-line no-control-regex
+  totalText = totalText.replace(/\x00/g, '');
 
   if (totalText.trim().length < 100) {
     return { totalPages, chunks: [] };

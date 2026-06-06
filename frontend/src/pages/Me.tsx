@@ -80,6 +80,17 @@ export function Me() {
         <Box variant="soft" className="p-3">
           <button
             type="button"
+            onClick={() => nav('/me/feedback')}
+            className="w-full text-left font-cn text-sm font-bold flex items-center justify-between"
+          >
+            <span>📋 我的反馈</span>
+            <span className="font-handBold">›</span>
+          </button>
+        </Box>
+
+        <Box variant="soft" className="p-3">
+          <button
+            type="button"
             onClick={() => setPwOpen((v) => !v)}
             className="w-full text-left font-cn text-sm font-bold flex items-center justify-between"
           >

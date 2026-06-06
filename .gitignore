@@ -15,3 +15,5 @@ backend/scripts/*.js
 backend/src/**/*.js
 frontend/vite.config.js
 frontend/vite.config.d.ts
+admin/vite.config.js
+admin/vite.config.d.ts

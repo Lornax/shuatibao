@@ -107,7 +107,7 @@ echo "VITE_API_TOKEN=<跟 backend API_TOKEN 同值>" > frontend/.env.local
 
 ```bash
 cd backend
-npx drizzle-kit migrate   # 应用 schema migrations
+npx drizzle-kit@0.31.10 migrate   # 应用 schema migrations
 npm run seed              # 创建初始用户, 输出 SEED_USER_ID
 # 把输出的 SEED_USER_ID=xxx 贴回 backend/.env
 cd ..
@@ -167,8 +167,8 @@ PORT=3001
 DATABASE_URL=postgres://<your-pg-user>@localhost:5432/shuatibao
 API_TOKEN=<your-random-token>
 SEED_USER_ID=<uuid-from-seed>
-JWT_SECRET=<openssl rand -hex 32>
-DASHSCOPE_API_KEY=sk-xxxx
+JWT_SECRET=<your-jwt-secret>
+DASHSCOPE_API_KEY=<your-dashscope-api-key>
 # 可选
 COS_SECRET_ID=
 COS_SECRET_KEY=
@@ -186,7 +186,7 @@ DASHSCOPE_CODING_API_KEY=
 ```bash
 # 1. 后端 src + drizzle migration 上传, 跑 migrate
 scp -r backend/src backend/drizzle backend/package.json backend/tsconfig.json <vps>:/opt/shuatibao/
-ssh <vps> 'cd /opt/shuatibao && npm install --omit=dev && npx drizzle-kit migrate'
+ssh <vps> 'cd /opt/shuatibao && npm install --omit=dev && npx drizzle-kit@0.31.10 migrate'
 
 # 2. 前端 build 推到 backend 的 public/
 cd frontend && npm run build && scp -r dist/* <vps>:/opt/shuatibao/public/

@@ -146,8 +146,8 @@ DASHSCOPE_API_KEY=
 最终内容：
 ```
 PORT=3001
-DATABASE_URL=postgres://<admin-user>host:5432/learn_or_die_lite
-API_TOKEN=dev-fixed-token-change-me
+DATABASE_URL=postgres://lornax@localhost:5432/learn_or_die_lite
+API_TOKEN=<your-random-token>
 SEED_USER_ID=
 DASHSCOPE_API_KEY=
 ```
@@ -173,7 +173,7 @@ export const config = schema.parse(process.env);
 
 - [ ] **Step 4: 让用户把真实 key 写进 .env**
 
-⚠️ **必须告诉用户在 backend/.env 加一行 `DASHSCOPE_API_KEY=sk-xxxxxx`（用他自己的 key）**。subagent 不要尝试发现/捕获/记录 key。
+⚠️ **必须告诉用户在 backend/.env 加一行 `DASHSCOPE_API_KEY=<your-dashscope-api-key>`（用他自己的 key）**。subagent 不要尝试发现/捕获/记录 key。
 
 - [ ] **Step 5: Create backend/src/ai/prompts.ts (EXACT)**
 
@@ -2045,7 +2045,7 @@ cd /Users/lornax/Works/learn-or-die-lite && git add backend/tests/ && git commit
 
 ⚠️ 在浏览器 e2e 之前，作者必须在 `backend/.env` 加一行：
 ```
-DASHSCOPE_API_KEY=sk-xxxxx
+DASHSCOPE_API_KEY=<your-dashscope-api-key>
 ```
 （用作者自己的 dashscope key）
 

@@ -13,7 +13,8 @@ import { solveRouter } from './routes/solve.js';
 import { tagsRouter } from './routes/tags.js';
 import { importJobsRouter } from './routes/import-jobs.js';
 import { chatRouter } from './routes/chat.js';
-import { studyChatRouter } from './routes/study-chat.js';
+import { studyChatRouter, selfHealStudyChatImages } from './routes/study-chat.js';
+import { feedbackRouter } from './routes/feedback.js';
 import { textbooksRouter } from './routes/textbooks.js';
 import { selfHealTextbooksOnBoot } from './lib/textbook-worker.js';
 import { authRouter } from './routes/auth.js';
@@ -22,9 +23,13 @@ import { selfHealOnBoot } from './lib/import-worker.js';
 const app = new Hono<{ Variables: AuthVars }>();
 const isProd = process.env.NODE_ENV === 'production';
 
-// dev: vite (5173) → backend (3001) needs CORS. prod: same-origin, no CORS needed.
+// dev: vite (5173 frontend) → backend (3001) needs CORS.
+// prod: same-origin, no CORS needed.
 if (!isProd) {
-  app.use('/api/*', cors({ origin: 'http://localhost:5173', credentials: true }));
+  app.use(
+    '/api/*',
+    cors({ origin: ['http://localhost:5173'], credentials: true }),
+  );
 }
 
 // 公开 auth 端点 (register/login), 不挂 auth middleware. 必须在 auth.use 之前 mount.
@@ -44,6 +49,7 @@ app.route('/api', importJobsRouter);
 app.route('/api', chatRouter);
 app.route('/api', studyChatRouter);
 app.route('/api', textbooksRouter);
+app.route('/api', feedbackRouter);
 
 // production: serve the built frontend as a SPA from ./public
 if (isProd) {
@@ -76,6 +82,11 @@ if (process.env.NODE_ENV !== 'test' && import.meta.url === `file://${process.arg
       if (n > 0) console.log(`[textbooks] self-healed ${n} stale textbook(s) on boot`);
     })
     .catch((e) => console.error('[textbooks] self-heal failed', e));
+  selfHealStudyChatImages()
+    .then((n) => {
+      if (n > 0) console.log(`[study-chat] cleared ${n} expired image(s) (>5d) on boot`);
+    })
+    .catch((e) => console.error('[study-chat] image self-heal failed', e));
   serve({ fetch: app.fetch, port: config.PORT }, (info) => {
     console.log(`backend listening on :${info.port}`);
   });

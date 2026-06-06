@@ -14,7 +14,9 @@ const optionSchema = z.object({
 
 const createSchema = z.object({
   stem: z.string().min(1).max(2000),
+  type: z.enum(['single', 'multi', 'judge']).default('single'),
   options: z.array(optionSchema).min(2).max(8),
+  // single: "A"; multi: "A,C"; judge: "T"|"F"
   answer: z.string().min(1).max(20),
   explanation: z.string().max(2000).optional(),
   tags: z.array(z.string().max(30)).max(10).default([]),
@@ -25,12 +27,38 @@ const createSchema = z.object({
 
 const patchSchema = z.object({
   stem: z.string().min(1).max(2000).optional(),
+  type: z.enum(['single', 'multi', 'judge']).optional(),
   options: z.array(optionSchema).min(2).max(8).optional(),
   answer: z.string().max(20).optional(),
   explanation: z.string().max(2000).nullable().optional(),
   tags: z.array(z.string().max(30)).max(10).optional(),
   difficulty: z.number().int().min(1).max(5).optional(),
 });
+
+// 验证 answer 跟 type/options 一致
+function validateAnswer(
+  type: 'single' | 'multi' | 'judge',
+  answer: string,
+  options: { key: string }[],
+): string | null {
+  if (type === 'judge') {
+    if (answer !== 'T' && answer !== 'F') return 'judge answer must be T or F';
+    return null;
+  }
+  const optionKeys = new Set(options.map((o) => o.key));
+  if (type === 'single') {
+    if (!optionKeys.has(answer)) return 'answer not in options';
+    return null;
+  }
+  // multi
+  const parts = answer.split(',').map((s) => s.trim()).filter(Boolean);
+  if (parts.length < 1) return 'multi answer empty';
+  for (const k of parts) if (!optionKeys.has(k)) return `answer key "${k}" not in options`;
+  // 确保排序
+  const sorted = [...parts].sort().join(',');
+  if (sorted !== parts.join(',')) return 'multi answer keys must be sorted';
+  return null;
+}
 
 const SIMILARITY_THRESHOLD = 0.85;
 
@@ -52,10 +80,8 @@ router.post('/profiles/:pid/questions', async (c) => {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return c.json({ error: 'invalid_body', details: parsed.error.flatten() }, 400);
 
-  const answerKeys = parsed.data.options.map((o) => o.key);
-  if (!answerKeys.includes(parsed.data.answer)) {
-    return c.json({ error: 'answer_not_in_options' }, 400);
-  }
+  const invalid = validateAnswer(parsed.data.type, parsed.data.answer, parsed.data.options);
+  if (invalid) return c.json({ error: 'invalid_answer', detail: invalid }, 400);
 
   let embedding: number[] | null = null;
   try {
@@ -70,6 +96,7 @@ router.post('/profiles/:pid/questions', async (c) => {
     .values({
       profileId: pid,
       stem: parsed.data.stem,
+      type: parsed.data.type,
       options: parsed.data.options,
       answer: parsed.data.answer,
       explanation: parsed.data.explanation,
@@ -212,8 +239,11 @@ router.patch('/questions/:id', async (c) => {
   if (!parsed.success) return c.json({ error: 'invalid_body', details: parsed.error.flatten() }, 400);
 
   const finalOptions = parsed.data.options ?? row.q.options;
-  if (parsed.data.answer && !finalOptions.map((o) => o.key).includes(parsed.data.answer)) {
-    return c.json({ error: 'answer_not_in_options' }, 400);
+  const finalType = (parsed.data.type ?? row.q.type) as 'single' | 'multi' | 'judge';
+  const finalAnswer = parsed.data.answer ?? row.q.answer;
+  if (parsed.data.answer || parsed.data.type || parsed.data.options) {
+    const invalid = validateAnswer(finalType, finalAnswer, finalOptions);
+    if (invalid) return c.json({ error: 'invalid_answer', detail: invalid }, 400);
   }
 
   const updates: Record<string, unknown> = { ...parsed.data };

@@ -73,7 +73,11 @@ export function QuestionFromPDF() {
     const f = e.target.files?.[0];
     if (!f) return;
     if (!f.name.toLowerCase().endsWith('.pdf')) return setError('请选 PDF 文件');
-    if (f.size > 20 * 1024 * 1024) return setError('PDF 超过 20MB');
+    if (f.size > 20 * 1024 * 1024) {
+      return setError(
+        `这份 PDF ${(f.size / 1024 / 1024).toFixed(1)} MB，超过 20 MB 上限。可点右上角 💬 反馈联系作者协助。`,
+      );
+    }
     setFile(f);
     setError(null);
     setNewMatch(null);

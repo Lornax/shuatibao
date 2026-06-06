@@ -256,8 +256,8 @@ git commit -m "chore: setup npm workspaces and base tsconfig"
 
 ```
 PORT=3001
-DATABASE_URL=postgres://<admin-user>host:5432/learn_or_die_lite
-API_TOKEN=dev-fixed-token-change-me
+DATABASE_URL=postgres://lornax@localhost:5432/learn_or_die_lite
+API_TOKEN=<your-random-token>
 ```
 
 - [ ] **Step 4: 写 backend/src/config.ts**
@@ -671,7 +671,7 @@ export default defineConfig({
   schema: './src/db/schema.ts',
   out: './drizzle',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://<admin-user>host:5432/learn_or_die_lite',
+    url: process.env.DATABASE_URL ?? 'postgres://lornax@localhost:5432/learn_or_die_lite',
   },
 });
 ```
@@ -727,7 +727,7 @@ async function seed() {
   const [user] = await db
     .insert(schema.users)
     .values({
-      email: '<admin-user>',
+      email: 'lornax@local',
       nickname: 'Lornax',
     })
     .returning();
@@ -873,7 +873,7 @@ curl -i -H "Authorization: Bearer wrong" http://localhost:3001/api/me
 
 正确 token（替换成你 .env 里的 API_TOKEN）：
 ```bash
-curl -i -H "Authorization: Bearer dev-fixed-token-change-me" http://localhost:3001/api/me
+curl -i -H "Authorization: Bearer <your-random-token>" http://localhost:3001/api/me
 # 期望: 200 + {"userId":"<uuid>"}
 ```
 
@@ -939,7 +939,7 @@ export async function resetDb() {
   await db.execute(sql`TRUNCATE attempts, questions, profiles, users RESTART IDENTITY CASCADE`);
   await db.insert(schema.users).values({
     id: TEST_USER_ID,
-    email: '<admin-user>',
+    email: 'lornax@local',
     nickname: 'Lornax',
   });
 }
@@ -1915,7 +1915,7 @@ git commit -m "feat(frontend): add base UI components matching wireframe styles"
 - [ ] **Step 1: 写 frontend/.env.local（gitignore 已覆盖）**
 
 ```
-VITE_API_TOKEN=dev-fixed-token-change-me
+VITE_API_TOKEN=<your-random-token>
 ```
 
 注意：值必须跟 `backend/.env` 的 `API_TOKEN` 一致。

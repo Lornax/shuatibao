@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, setToken } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { LanguageToggle } from '../i18n';
 
 /**
  * 登录页 · 高保真 v2
@@ -37,6 +38,9 @@ export function Login() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center px-5 py-8" style={pageBg}>
       <div className="w-full max-w-[360px] relative">
+        <div className="absolute right-0 -top-1 z-10">
+          <LanguageToggle compact />
+        </div>
         {/* 装饰元素 */}
         <div className="float sticky-note">
           D-?<br />加油!

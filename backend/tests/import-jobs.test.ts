@@ -24,13 +24,15 @@ vi.mock('../src/ai/client.js', () => ({
       ],
       answer: 'A',
       explanation: '',
-      tags: ['NPDP'],
+      tags: [],
       difficulty: 2,
+      type: 'single' as const,
     },
   ]),
   solveQuestion: vi.fn(),
   embed: vi.fn(),
   cosineSimilarity: vi.fn(),
+  friendlyAIError: vi.fn((e: unknown) => String(e instanceof Error ? e.message : e)),
 }));
 
 import { structureQuestionsFromPdfText } from '../src/ai/client.js';
@@ -84,8 +86,9 @@ beforeEach(async () => {
       ],
       answer: 'A',
       explanation: '',
-      tags: ['NPDP'],
+      tags: [],
       difficulty: 2,
+      type: 'single' as const,
     },
   ]);
 });
@@ -154,8 +157,9 @@ describe('POST /api/profiles/:pid/import-jobs', () => {
           ],
           answer: 'A',
           explanation: '',
-          tags: ['NPDP'],
+          tags: [],
           difficulty: 2,
+          type: 'single' as const,
         },
       ])
       .mockRejectedValue(new Error('mock LLM timeout'));

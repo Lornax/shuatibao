@@ -3,7 +3,9 @@ import { app } from '../src/index.js';
 import { authHeaders } from './helpers.js';
 
 vi.mock('../src/ai/client.js', () => ({
-  generateStudyWelcome: vi.fn(async () => '欢迎语 mock：今天先刷错题本 10 道'),
+  generateStudyWelcome: vi.fn(async (_p, _s, language = 'zh') =>
+    language === 'en' ? 'Welcome mock: start with one question today' : '欢迎语 mock：今天先刷错题本 10 道',
+  ),
   chatStudy: vi.fn(async (_p, _s, _h, msg: string) => `mocked study reply to: ${msg}`),
   chatAboutQuestion: vi.fn(),
   recognizeQuestionFromImage: vi.fn(),
@@ -36,6 +38,19 @@ describe('POST /api/profiles/:pid/study-chat/welcome', () => {
     expect(body.skipped).toBe(false);
     expect(body.message.role).toBe('assistant');
     expect(body.message.content).toContain('欢迎语 mock');
+  });
+
+  it('generates English welcome when requested by the client language', async () => {
+    const res = await app.request(`/api/profiles/${pid}/study-chat/welcome`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ language: 'en' }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.skipped).toBe(false);
+    expect(body.message.role).toBe('assistant');
+    expect(body.message.content).toContain('Welcome mock');
   });
 
   it('skips when history already exists', async () => {

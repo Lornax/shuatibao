@@ -5,7 +5,6 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     pool: 'forks',
-    poolOptions: { forks: { singleFork: true } },
     fileParallelism: false,
     setupFiles: ['./tests/helpers.ts'],
   },

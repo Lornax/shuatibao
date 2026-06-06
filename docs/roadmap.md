@@ -17,7 +17,7 @@
 | 题目页问 AI + 教材 RAG | ✅ v0.5 |
 | AI 陪学 Tab（独立对话） | ✅ v0.4 |
 | 视觉打磨（v2 设计语言 · 霞鹜文楷 · 红影） | ✅ v0.8.0 |
-| VPS 上线 · 手机可访问 | ✅ http://<your-vps-ip>:3001 |
+| VPS 上线 · 手机可访问 | ✅ http://82.156.139.33:3001 |
 | PDF 导入断点续传 | ✅ v0.0.8.2 |
 
 **P1 验收 7 条全部达成。**
@@ -32,7 +32,7 @@
 
 - **数据备份** —
   - `GET /api/me/export`：一键导出当前用户全部档案 / 题库 / 错题 / 教材引用为 JSON
-  - VPS systemd timer 每日 `pg_dump` 推 COS（用 `COS_BUCKET` env 指定），保留 7 天
+  - VPS systemd timer 每日 `pg_dump` 推 COS（已有 `zp1-1428145534` bucket），保留 7 天
 - **HTTPS** — 装 Caddy + Let's Encrypt 自动续证，需要先备好域名（腾讯云 `.top` / `.xyz` 几块钱一年即可）。当前 HTTP 登录密码明文走公网。
 
 ### B. 学习节奏可视化（用户新提）
@@ -62,11 +62,85 @@
 
 实现：profile 表加 `coach_style` enum + 可选 `coach_prompt_addon` 文本，buildStudySystemPrompt 按 style 套不同的"严格度"段落。
 
+### F. 分享（用户提）
+
+- **分享软件**：登录页 / 我的页加 "邀请朋友" 按钮，生成带 logo + slogan 的分享卡片
+  - 微信分享（如果做 PWA + 标记 og:tags）
+  - 复制链接 + 二维码下载到本地（最低门槛）
+- **分享题包**：题库管理选中 N 道 → 导出为 JSON 链接 → 朋友点链接能一键复制到自己档案
+  - 一种轻量"题包市场"前身，给 Stage 3 的交易市场探路
+  - 实现：question/share 端点生成短码 → 接收方 import
+
+### G. 支持其他题型（用户提）
+
+当前只支持单选。要扩到：
+- **判断题** (True/False)：options 固定 `[T, F]`，schema 不动只是 UI 简化
+- **多选题** (multi-choice)：answer 字段从 string 改成 string[]，Quiz 页改成多选 checkbox
+- **简答题** (short answer)：answer 是文本，AI 评判用户答案对错（语义匹配 + 相似度）
+- **填空题** (fill blank)：题干含 `___` 占位符，answer 是关键词数组
+
+工作量：
+- schema 加 `question_type` enum: 'single' | 'multi' | 'judge' | 'short' | 'blank'
+- 拍照识题 / PDF 解析的 LLM prompt 要按类型分发
+- Quiz 答题 UI 按类型渲染不同控件
+- 评判逻辑要按类型走（短答用 LLM 判分）
+
+按价值排序: 判断题 (1 天) → 多选 (2 天) → 简答 (3 天，需 LLM 评判) → 填空 (2 天)
+
 ### E. UI / 文案打磨（积累中）
 
 - ProfileList 卡片再优化（当前比较朴素）
 - 错题本/题库管理页跟 v2 视觉语言完全对齐
 - Quiz 顶部进度条样式精修
+
+### F. 开放设计问题 · 陪学入库 conversationContext 边界
+
+**背景**：v0.0.10 实装了「AI 陪学发图问题 → 讨论 → 一键加入题库」流程。入库时前端把"该用户图片消息之后的对话"作为 conversationContext 喂给视觉模型，让它综合教材标准 + 师生讨论给出最终答案/解析（解决用户跟 AI 讨论后纠正倾向性答案的场景，如波士顿矩阵现金牛策略）。
+
+**当前实现（best-effort 启发式）**：
+- 起点：用户那条带图消息之后
+- 终点：遇到下一条带图的用户消息 OR 累计 8 条，取先到的
+- 兜底：QuestionConfirm 确认页本就允许用户校对/编辑所有字段，AI 偏了能纠正
+
+**问题**：分界基于"用户拍下一张图 = 在问新题"的假设，但用户可能拍其他知识点的图、可能拍一图后纯文字闲聊很久不发新图。conversationContext 容易夹带噪音。
+
+**4 个候选方案**（积累真实使用数据后再决定）：
+1. **维持现状 + 靠确认页兜底**（已实现）：启发式分段，确认页是用户最后一道关
+2. **入库前弹浮层让用户反勾不相关消息**：默认全勾，给用户一次干预机会。比手动勾选省事，比全自动多一步
+3. **AI 二次筛**：先让模型读上下文判断"哪些是讨论本题"，再用筛后的喂识题。准但慢且贵
+4. **强制用户勾选**：操作重 + 容易勾错，已被否
+
+**触发研究的信号**：
+- 用户反馈"入库的答案/解析跟讨论结论不符"频次 ≥ 3 次/周
+- 或在数据中看到 conversationContext 长度经常 > 4 条但识题答案明显跑偏
+
+记于 2026-05-21（lornax & Claude 讨论）。
+
+### G. v0.0.10.1 待办（陪学体验深化 + 成本优化）
+
+用户 2026-05-21 提出, 等回来后单独开版本做完这 4 条。
+
+1. **入库成功 marker 消息**: 一道题入库后, 在对话框正中央插一条灰色细字 "✓ 上述题目已加入题库"。给用户完成感闭环, 同时给 AI 一个天然的"题目分隔线", 比"下一张图分界"启发式可靠。
+   - schema: `study_chat_messages` 加 `is_note boolean default false`
+   - link-question 端点入库成功后自动 insert 一条 `role='assistant', isNote=true` 的 marker 消息
+   - 前端 Bubble: isNote=true → 居中灰色小字样式 (不是普通气泡)
+   - conversationContext 收集: 遇到 isNote 截断
+
+2. **chatStudy 前过滤已入库段, 省 token**: 入库段 (从那条带图 user 消息 → 讨论 → marker) 在 chatStudy 发送 history 时全部抹掉, 模型看不到, 前端仍能完整展示 (db 数据不动)。预期单档案可问题数涨 2-3 倍。
+   - 过滤规则: 找到 user role + linkedQuestionId 非空的消息, 排除该消息及其后续到 isNote 消息 (含) 之间所有消息
+   - 在 study-chat POST handler 拼 history 时实施
+
+3. **会话长度告警**: 后端算 history 总字符数, response 带 `tokenWarn: 'yellow' | 'red' | null`. 前端 chip 提示。
+   - 黄色阈值: ≥ 14000 字 (≈ 70% qwen-vl-max 窗口)
+   - 红色阈值: ≥ 18000 字 (≈ 90%)
+   - 提示文案: "对话太长 AI 可能记不全, 建议点下方清空重新打招呼"
+
+4. **主 fallback 顺序对调, coding plan 优先**: 当前 `withFallback(client, MODEL_VISION, codingClient, FB_VISION, ...)` 主走按 token 计费, coding plan 只兜底, 没用上套餐优势。对调成 `withFallback(codingClient, FB_VISION, client, MODEL_VISION, ...)` 主走 coding plan (包月不按 token), 按 token key 兜底保命。
+   - 改动: ai/client.ts 里所有 withFallback 调用 (5 处) 调换前 2 个 + 后 2 个参数
+   - 前置: 确认 VPS .env 里 DASHSCOPE_CODING_API_KEY 已设
+   - 见 memory: `feedback_dashscope_plan.md`
+
+记于 2026-05-21（lornax & Claude 讨论）。
 
 ---
 

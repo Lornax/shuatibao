@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, setToken } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { LanguageToggle } from '../i18n';
 import { PageStyles } from './Login';
 
 /**
@@ -51,6 +52,9 @@ export function Register() {
       }}
     >
       <div className="w-full max-w-[360px] relative">
+        <div className="absolute right-0 -top-1 z-10">
+          <LanguageToggle compact />
+        </div>
         <div className="float sticky-note">
           建档案<br />开始啃!
         </div>

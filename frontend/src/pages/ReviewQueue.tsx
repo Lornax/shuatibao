@@ -163,6 +163,7 @@ export function ReviewQueue() {
         try {
           await api.createQuestion(pid, {
             stem: c.stem,
+            type: c.type ?? 'single',
             options: c.options,
             answer: c.answer,
             explanation: c.explanation || undefined,

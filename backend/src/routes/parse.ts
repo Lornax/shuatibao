@@ -58,6 +58,34 @@ router.post('/profiles/:pid/parse/image', async (c) => {
   }
 });
 
+// 从 dataUrl (base64) 识题, 供 AI 陪学已上传的图片复用.
+// 跟 /parse/image (multipart) 共享 recognizeQuestionFromImage 内核.
+const dataUrlSchema = z.object({
+  dataUrl: z.string().startsWith('data:image/').max(8_000_000),
+  conversationContext: z.string().max(8000).optional(),
+});
+router.post('/profiles/:pid/parse/image-data-url', async (c) => {
+  const userId = c.get('userId');
+  const pid = c.req.param('pid');
+  if (!(await ownProfile(pid, userId))) return c.json({ error: 'not_found' }, 404);
+  const profile = await getProfileForExamName(pid);
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = dataUrlSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: 'invalid_body' }, 400);
+
+  try {
+    const candidate = await recognizeQuestionFromImage(
+      parsed.data.dataUrl,
+      profile?.examName,
+      parsed.data.conversationContext,
+    );
+    return c.json({ candidate, source: 'photo' });
+  } catch (e) {
+    return c.json({ error: 'ai_failed', detail: String(e) }, 502);
+  }
+});
+
 const promptSchema = z.object({
   knowledge: z.string().min(2).max(500),
   difficulty: z.number().int().min(1).max(5).default(2),

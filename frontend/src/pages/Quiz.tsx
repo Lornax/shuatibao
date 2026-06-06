@@ -17,7 +17,8 @@ type AnsweredRecord = {
 type Live =
   | { kind: 'loading' }
   | { kind: 'done' }
-  | { kind: 'asking'; q: Question; startAt: number; chosen: string | null }
+  // multi 时 chosen 是 Set<string>, single/judge 时是 string|null. 统一用 string[] 简化
+  | { kind: 'asking'; q: Question; startAt: number; chosen: string[] }
   | {
       kind: 'revealed';
       q: Question;
@@ -26,6 +27,11 @@ type Live =
       isCorrect: boolean;
       explanation: string | null;
     };
+
+// 把选中 keys 数组规范化成 db answer 字符串
+function chosenToAnswer(chosen: string[]): string {
+  return [...chosen].sort().join(',');
+}
 
 export function Quiz() {
   const { pid } = useParams<{ pid: string }>();
@@ -107,14 +113,14 @@ export function Quiz() {
         const next = new URLSearchParams(searchParams);
         next.delete('startWith');
         setSearchParams(next, { replace: true });
-        setLive({ kind: 'asking', q: q as Question, startAt: Date.now(), chosen: null });
+        setLive({ kind: 'asking', q: q as Question, startAt: Date.now(), chosen: [] });
         return;
       }
       const next = await api.nextQuiz(pid, { wrongOnly });
       if ('done' in next && next.done) {
         setLive({ kind: 'done' });
       } else {
-        setLive({ kind: 'asking', q: next as Question, startAt: Date.now(), chosen: null });
+        setLive({ kind: 'asking', q: next as Question, startAt: Date.now(), chosen: [] });
       }
     } catch (e) {
       console.error(e);
@@ -128,17 +134,17 @@ export function Quiz() {
   }, [pid]);
 
   async function submit() {
-    if (live.kind !== 'asking' || !live.chosen) return;
-    // 用活动累计时长 (idle 超 300s 不计) 提交; 不再用墙钟 Date.now() - startAt
+    if (live.kind !== 'asking' || live.chosen.length === 0) return;
     const elapsed = Math.min(idleTimerRef.current.accumulatedMs, 60 * 60 * 1000);
+    const chosenStr = chosenToAnswer(live.chosen);
     const res = await api.submitAttempt(live.q.id, {
-      chosen: live.chosen,
+      chosen: chosenStr,
       timeSpentMs: elapsed,
     });
     setLive({
       kind: 'revealed',
       q: live.q,
-      chosen: live.chosen,
+      chosen: chosenStr,
       correct: res.correctAnswer,
       isCorrect: res.attempt.isCorrect,
       explanation: res.explanation,
@@ -234,18 +240,47 @@ export function Quiz() {
       {viewing === 'live' && live.kind === 'asking' && (
         <div className="space-y-3">
           <Stem stem={live.q.stem} />
+          {/* 题型提示 chip */}
+          {(live.q.type === 'multi' || live.q.type === 'judge') && (
+            <div className="font-cn text-xs text-ink-2">
+              {live.q.type === 'multi' ? '【多选题】选中所有正确的' : '【判断题】判断对错'}
+            </div>
+          )}
           <div className="space-y-2">
-            {live.q.options.map((o) => (
-              <Box
-                key={o.key}
-                variant={live.chosen === o.key ? 'thick' : 'soft'}
-                className={`p-3 cursor-pointer ${live.chosen === o.key ? 'bg-chip-cream' : ''}`}
-                onClick={() => setLive({ ...live, chosen: o.key })}
-              >
-                <span className="font-handBold font-bold mr-2">{o.key}.</span>
-                <span className="font-cn text-sm">{o.text}</span>
-              </Box>
-            ))}
+            {live.q.options.map((o) => {
+              const selected = live.chosen.includes(o.key);
+              const onPick = () => {
+                if (live.q.type === 'multi') {
+                  // 多选: toggle
+                  setLive({
+                    ...live,
+                    chosen: selected
+                      ? live.chosen.filter((k) => k !== o.key)
+                      : [...live.chosen, o.key],
+                  });
+                } else {
+                  // single / judge: 单选, 覆盖
+                  setLive({ ...live, chosen: [o.key] });
+                }
+              };
+              return (
+                <Box
+                  key={o.key}
+                  variant={selected ? 'thick' : 'soft'}
+                  className={`p-3 cursor-pointer ${selected ? 'bg-chip-cream' : ''}`}
+                  onClick={onPick}
+                >
+                  <span className="font-handBold font-bold mr-2">
+                    {live.q.type === 'judge'
+                      ? o.key === 'T' ? '✓' : '✗'
+                      : live.q.type === 'multi'
+                        ? selected ? '☑' : '☐'
+                        : `${o.key}.`}
+                  </span>
+                  <span className="font-cn text-sm">{o.text}</span>
+                </Box>
+              );
+            })}
           </div>
           <div className="flex gap-2">
             <Button
@@ -259,7 +294,7 @@ export function Quiz() {
             <Button
               variant="primary"
               onClick={submit}
-              disabled={!live.chosen}
+              disabled={live.chosen.length === 0}
               className="flex-[1.4] justify-center"
             >
               提交

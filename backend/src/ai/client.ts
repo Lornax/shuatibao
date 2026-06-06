@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { config } from '../config.js';
+import { db, schema } from '../db/client.js';
 import {
   buildVisionRecognizePrompt,
   buildPromptGenPrompt,
@@ -18,26 +19,71 @@ const client = new OpenAI({
   baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
 });
 
-// Fallback client: 百炼 coding plan (qwen3.6-plus 含视觉 / glm-5 / qwen3-max-2026-01-23)
-// 没配 key 时为 null, fallback 行为退化成"直接 throw 原错误"
-const codingClient = config.DASHSCOPE_CODING_API_KEY
+// codingClient (百炼 coding plan key) 暂时不用了, 主+fallback 现在是 mimo+dashscope. 留 env 字段
+// 以备将来需要做三级 fallback (mimo -> dashscope -> coding plan).
+
+// 硅基流动 client: 给 embedding 用 (BAAI/bge-m3 永久免费, 1024 维兼容 dashscope text-embedding).
+// 没配 key 时为 null, embed 自动 fallback 到 dashscope text-embedding-v4.
+const siliconflowClient = config.SILICONFLOW_API_KEY
   ? new OpenAI({
-      apiKey: config.DASHSCOPE_CODING_API_KEY,
-      baseURL: config.DASHSCOPE_CODING_BASE_URL,
+      apiKey: config.SILICONFLOW_API_KEY,
+      baseURL: config.SILICONFLOW_BASE_URL,
     })
   : null;
 
-// 主模型
-const MODEL_VISION = 'qwen-vl-max';
-const MODEL_TEXT = 'qwen-max';
-const MODEL_EMBEDDING = 'text-embedding-v3';
-const MODEL_CHAT = 'deepseek-v3';
-// Coding plan 替换模型 (用户配置)
-const FB_VISION = 'qwen3.6-plus'; // 文本+视觉, 替换 qwen-vl-max
-const FB_TEXT = 'qwen3-max-2026-01-23'; // 替换 qwen-max
-const FB_CHAT = 'glm-5'; // 替换 deepseek-v3 (chat 长文本对话)
-// Embedding 没有 coding plan, 用同 client 的 v2 兜底
-const FB_EMBEDDING = 'text-embedding-v2';
+// 小米 MiMo client: 主用于 chat / text / vision (mimo-v2.5-pro / mimo-v2.5).
+// 没配 key 时为 null, 各 LLM 调用降级用 dashscope (qwen-max / qwen-vl-max / deepseek-v3).
+const mimoClient = config.MIMO_API_KEY
+  ? new OpenAI({
+      apiKey: config.MIMO_API_KEY,
+      baseURL: config.MIMO_BASE_URL,
+    })
+  : null;
+
+// 主模型: 优先 MiMo (包月套餐), MiMo 没配时回退用 dashscope 模型 (按 token 计费).
+// fallback 始终是 dashscope, 让 MiMo quota / 服务异常时仍可用.
+const useMimo = !!mimoClient;
+const MODEL_VISION = useMimo ? 'mimo-v2.5' : 'qwen-vl-max';
+const MODEL_TEXT = useMimo ? 'mimo-v2.5-pro' : 'qwen-max';
+// chat 用 v2.5 (非 pro): thinking 链短, 响应 ~5s vs pro 10s, 用户在等回复时速度优先
+const MODEL_CHAT = useMimo ? 'mimo-v2.5' : 'deepseek-v3';
+// 解题跟 chat 一样是用户实时等待 (点「AI 解一下」按钮), 用 v2.5 速度优先.
+// 出题 / PDF 结构化是后台任务用户能干别的, 仍用 pro 求质量.
+const MODEL_SOLVE = useMimo ? 'mimo-v2.5' : 'qwen-max';
+// Embedding 主用硅基流动 BAAI/bge-m3 (永久免费, 1024 维兼容 dashscope text-embedding-v3/v4).
+const MODEL_EMBEDDING = 'BAAI/bge-m3';
+// Fallback 模型 (走 dashscope 主 client)
+const FB_VISION = 'qwen-vl-max';
+const FB_TEXT = 'qwen-max';
+const FB_CHAT = 'deepseek-v3';
+// Embedding fallback: 硅基流动挂时回退到 dashscope text-embedding-v4. 都是 1024 维兼容老数据.
+const FB_EMBEDDING = 'text-embedding-v4';
+// 主 LLM client: 优先 mimo, 没配走 dashscope.
+const primaryLlmClient: OpenAI = mimoClient ?? client;
+
+export function buildEmbeddingCreateParams(
+  model: string,
+  texts: string[],
+): { model: string; input: string[]; dimensions?: number } {
+  const params: { model: string; input: string[]; dimensions?: number } = { model, input: texts };
+  if (model !== MODEL_EMBEDDING) {
+    params.dimensions = 1024;
+  }
+  return params;
+}
+
+/**
+ * 把 dashscope 等 LLM 调用的英文报错转成给用户看的友好中文.
+ * 主要场景: 余额/quota/free tier 类报错 -> 引导用户去反馈联系作者充值.
+ * 其他错误原样返回, 便于排查.
+ */
+export function friendlyAIError(e: unknown): string {
+  const msg = String((e as { message?: unknown })?.message ?? e ?? '');
+  if (/exhausted|quota|free tier|arrearage|余额|rate limit|insufficient/i.test(msg)) {
+    return '啊哦，作者的 token 余额不足，请在右上角点击 💬 反馈，让吝啬的作者再充点小钱钱吧！';
+  }
+  return msg;
+}
 
 function isQuotaError(e: unknown): boolean {
   const msg = String((e as { message?: unknown })?.message ?? e ?? '').toLowerCase();
@@ -53,7 +99,8 @@ function isQuotaError(e: unknown): boolean {
   );
 }
 
-// 主模型/主 client 挂了 → 切 fallback (可能换 client + 换 model)
+// 主模型/主 client 挂了 → 切 fallback (可能换 client + 换 model).
+// 成功路径 fire-and-forget 写 llm_usage 表, 用于后续用量统计.
 async function withFallback<T>(
   primaryClient: OpenAI,
   primaryModel: string,
@@ -62,8 +109,10 @@ async function withFallback<T>(
   label: string,
   run: (c: OpenAI, m: string) => Promise<T>,
 ): Promise<T> {
+  let usedModel = primaryModel;
+  let result: T;
   try {
-    return await run(primaryClient, primaryModel);
+    result = await run(primaryClient, primaryModel);
   } catch (e) {
     if (!isQuotaError(e)) throw e;
     if (!fallbackClient) {
@@ -71,22 +120,58 @@ async function withFallback<T>(
       throw e;
     }
     console.warn(`[ai:${label}] primary "${primaryModel}" hit quota, fallback to "${fallbackModel}"`);
-    return await run(fallbackClient, fallbackModel);
+    usedModel = fallbackModel;
+    result = await run(fallbackClient, fallbackModel);
   }
+  recordUsage(usedModel, label, result).catch((err) => {
+    console.error('[ai:usage] log failed:', err);
+  });
+  return result;
+}
+
+// OpenAI SDK 的 ChatCompletion / Embedding response 都带 usage 字段.
+// dashscope OpenAI 兼容模式也跟着返. fire-and-forget, db 失败不影响主路径.
+async function recordUsage(model: string, kind: string, result: unknown): Promise<void> {
+  const usage = (result as { usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } }).usage;
+  if (!usage) return;
+  await db.insert(schema.llmUsage).values({
+    model,
+    kind,
+    inputTokens: usage.prompt_tokens ?? 0,
+    outputTokens: usage.completion_tokens ?? 0,
+    totalTokens: usage.total_tokens ?? 0,
+  });
 }
 
 export async function recognizeQuestionFromImage(
   imageBase64DataUrl: string,
   examName?: string,
+  /**
+   * 可选的对话上下文 (来自 AI 陪学): 用户和 AI 在入库前已经讨论过这道题,
+   * 可能在解释过程中纠正了倾向性答案. 入库时把这段讨论喂回模型,
+   * 让它综合"教材标准 + 师生讨论结论"给出最终的 answer + explanation.
+   */
+  conversationContext?: string,
 ): Promise<CandidateQuestion> {
-  const r = await withFallback(client, MODEL_VISION, codingClient, FB_VISION, 'vision', (c, m) =>
+  const textParts: string[] = [buildVisionRecognizePrompt(examName)];
+  if (conversationContext && conversationContext.trim()) {
+    textParts.push(
+      '',
+      '⚠️ 重要补充: 用户已经就这道题和 AI 陪学进行了讨论, 下面是讨论记录:',
+      '---',
+      conversationContext.trim(),
+      '---',
+      '请综合教材标准答案 + 上面讨论中形成的共识, 给出 answer (如讨论中改了倾向性答案就用讨论后的) 和 explanation (吸收讨论中的关键澄清, 不要简单复述题面).',
+    );
+  }
+  const r = await withFallback(primaryLlmClient, MODEL_VISION, client, FB_VISION, 'vision', (c, m) =>
     c.chat.completions.create({
       model: m,
       messages: [
         {
           role: 'user',
           content: [
-            { type: 'text', text: buildVisionRecognizePrompt(examName) },
+            { type: 'text', text: textParts.join('\n') },
             { type: 'image_url', image_url: { url: imageBase64DataUrl } },
           ],
         },
@@ -128,7 +213,7 @@ export async function generateQuestionFromPrompt(
   const systemPrompt = textbookReference
     ? `${basePrompt}\n\n${textbookReference}`
     : basePrompt;
-  const r = await withFallback(client, MODEL_TEXT, codingClient, FB_TEXT, 'genPrompt', (c, model) =>
+  const r = await withFallback(primaryLlmClient, MODEL_TEXT, client, FB_TEXT, 'genPrompt', (c, model) =>
     c.chat.completions.create({
       model,
       messages: [
@@ -146,7 +231,7 @@ export async function structureQuestionsFromPdfText(
   pdfText: string,
   opts: { signal?: AbortSignal; examName?: string } = {},
 ): Promise<CandidateQuestion[]> {
-  const r = await withFallback(client, MODEL_TEXT, codingClient, FB_TEXT, 'pdfStruct', (c, model) =>
+  const r = await withFallback(primaryLlmClient, MODEL_TEXT, client, FB_TEXT, 'pdfStruct', (c, model) =>
     c.chat.completions.create(
       {
         model,
@@ -169,7 +254,7 @@ export async function solveQuestion(
   examName?: string,
 ): Promise<{ answer: string; explanation: string }> {
   const optionsStr = options.map((o) => `${o.key}. ${o.text}`).join('\n');
-  const r = await withFallback(client, MODEL_TEXT, codingClient, FB_TEXT, 'solve', (c, model) =>
+  const r = await withFallback(primaryLlmClient, MODEL_SOLVE, client, FB_TEXT, 'solve', (c, model) =>
     c.chat.completions.create({
       model,
       messages: [
@@ -200,11 +285,11 @@ export async function solveQuestion(
 
 export async function embed(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const r = await withFallback(client, MODEL_EMBEDDING, client, FB_EMBEDDING, 'embed', (c, model) =>
-    c.embeddings.create({
-      model,
-      input: texts,
-    }),
+  // 主: 硅基流动 BAAI/bge-m3 (永久免费), fallback: dashscope text-embedding-v4. 都是 1024 维.
+  // siliconflowClient 没配时降级用 dashscope client (本地开发场景).
+  const primary = siliconflowClient ?? client;
+  const r = await withFallback(primary, MODEL_EMBEDDING, client, FB_EMBEDDING, 'embed', (c, model) =>
+    c.embeddings.create(buildEmbeddingCreateParams(model, texts) as any),
   );
   return r.data.map((d) => d.embedding);
 }
@@ -253,7 +338,7 @@ export async function chatAboutQuestion(
   systemPrompt = `今天是 ${cnDate}（Asia/Shanghai）。\n\n${systemPrompt}`;
   if (textbookReference) systemPrompt += `\n\n${textbookReference}`;
 
-  const r = await withFallback(client, MODEL_CHAT, codingClient, FB_CHAT, 'chat', (c, model) =>
+  const r = await withFallback(primaryLlmClient, MODEL_CHAT, client, FB_CHAT, 'chat', (c, model) =>
     c.chat.completions.create({
       model,
       messages: [
@@ -284,7 +369,22 @@ export type StudyStatsContext = {
   daysUntilExam: number | null;
 };
 
-function buildStudySystemPrompt(profile: ProfileContext, stats: StudyStatsContext): string {
+export type StudyLanguage = 'zh' | 'en';
+type StudyLanguagePolicy = StudyLanguage | 'auto';
+
+function studyLanguageInstruction(language: StudyLanguagePolicy): string {
+  if (language === 'en') return '- Language: English. Keep it mobile-readable.';
+  if (language === 'auto') {
+    return '- 语言: 跟随用户最新消息的主要语言回复；用户用英文就回英文，用户用中文就回中文；移动端阅读。';
+  }
+  return '- 语言: 中文，移动端阅读。';
+}
+
+function buildStudySystemPrompt(
+  profile: ProfileContext,
+  stats: StudyStatsContext,
+  language: StudyLanguagePolicy,
+): string {
   const now = new Date();
   const cnDate = now.toLocaleDateString('zh-CN', {
     timeZone: 'Asia/Shanghai',
@@ -311,11 +411,19 @@ function buildStudySystemPrompt(profile: ProfileContext, stats: StudyStatsContex
       : '- 还没开始答题',
     '',
     '原则：',
-    '- 中文，移动端阅读，**控制 200 字内**',
+    studyLanguageInstruction(language),
+    '- 字数: 闲聊/建议类回复 ≤ 200 字; 解题/讲概念/分析图片题, 按需展开到 400~600 字, 把答案/思路/关键依据讲清楚, 不要为了压字数省略实质分析',
     '- 给具体可执行建议（"今天先刷错题本 10 道"），不要泛泛而谈',
     '- 如果用户连续 2 天没答题，温柔催促但不说教',
     '- 如果错题本 > 20 道，建议优先清积压',
     '- 如果距考试 < 30 天，重点强调冲刺策略；> 60 天 重在节奏稳定',
+    '',
+    '输出格式 (重要, 渲染端是纯文本气泡, markdown 会原样显示成符号):',
+    '- 不要用 markdown: 不要 # 标题, 不要表格 |, 不要 **加粗**, 不要 ```代码块```, 不要 - 列表符号',
+    '- 用自然语言短句, 一段 1-3 句, 段之间空行',
+    '- 适度用 emoji 做视觉引导 (📚 学习 / ✏️ 答题 / 🎯 重点 / ⏰ 时间 / 🔥 连续打卡 / ⚠️ 警示 / 👍 表扬), 一次回复 2-4 个就够, 不要堆砌',
+    '- 数据列举用顿号或自然语言, 不要用 - 项目符号. 例: "今天该做的: 错题 5 道、新题 10 道、章节复习 1 节"',
+    '- 解释概念时用"先说结论, 再展开 1-2 句"的结构, 不要用编号大纲',
     '',
     '严格度（初期默认 "严格教练"，后期支持用户自选风格）：',
     '- 如果用户问与本次备考**无关**的话题（八卦、新闻、闲聊、其他考试、生活琐事），第一句话明确指出"我们先聚焦 ' + profile.examName + ' 备考"，然后用当前学习状态把他拉回正题（推荐下一步动作）。不要陪聊。',
@@ -334,9 +442,10 @@ function buildStudySystemPrompt(profile: ProfileContext, stats: StudyStatsContex
 export async function generateStudyWelcome(
   profile: ProfileContext,
   stats: StudyStatsContext,
+  language: StudyLanguage = 'zh',
 ): Promise<string> {
-  const systemPrompt = buildStudySystemPrompt(profile, stats);
-  const r = await withFallback(client, MODEL_CHAT, codingClient, FB_CHAT, 'chat', (c, model) =>
+  const systemPrompt = buildStudySystemPrompt(profile, stats, language);
+  const r = await withFallback(primaryLlmClient, MODEL_CHAT, client, FB_CHAT, 'chat', (c, model) =>
     c.chat.completions.create({
       model,
       messages: [
@@ -344,7 +453,9 @@ export async function generateStudyWelcome(
         {
           role: 'user',
           content:
-            '请用 2-3 句话开场，根据当前数据给出**一个**最具体的行动建议。不要复述上面的数据，直接给建议。',
+            language === 'en'
+              ? 'Open with 2-3 sentences in English. Based on the current data, give exactly one concrete next action. Do not restate the data; go straight to the recommendation.'
+              : '请用 2-3 句话开场，根据当前数据给出**一个**最具体的行动建议。不要复述上面的数据，直接给建议。',
         },
       ],
       temperature: 0.5,
@@ -361,10 +472,43 @@ export async function chatStudy(
   history: ChatHistoryMessage[],
   newUserMessage: string,
   textbookReference?: string,
+  imageDataUrl?: string,
 ): Promise<string> {
-  let systemPrompt = buildStudySystemPrompt(profile, stats);
+  let systemPrompt = buildStudySystemPrompt(profile, stats, 'auto');
   if (textbookReference) systemPrompt += `\n\n${textbookReference}`;
-  const r = await withFallback(client, MODEL_CHAT, codingClient, FB_CHAT, 'chat', (c, model) =>
+
+  // 含图片时切到 qwen-vl-max (deepseek-v3 不支持视觉),
+  // 当前消息的 content 改成 multimodal 数组 [text, image_url]
+  if (imageDataUrl) {
+    console.log('[chatStudy] vision branch:', {
+      model: MODEL_VISION,
+      imagePrefix: imageDataUrl.slice(0, 40),
+      imageLen: imageDataUrl.length,
+      newUserMsg: newUserMessage.slice(0, 60),
+      historyCount: history.length,
+    });
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...history.map((m) => ({ role: m.role, content: m.content })),
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: newUserMessage || '看这张图, 帮我分析' },
+          { type: 'image_url', image_url: { url: imageDataUrl } },
+        ],
+      },
+    ];
+    const r = await withFallback(primaryLlmClient, MODEL_VISION, client, FB_VISION, 'chat-vision', (c, model) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      c.chat.completions.create({ model, messages: messages as any, temperature: 0.5 }),
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const reply = (r as any).choices?.[0]?.message?.content?.trim() ?? '';
+    if (!reply) throw new Error('AI 返回空回复');
+    return reply;
+  }
+
+  const r = await withFallback(primaryLlmClient, MODEL_CHAT, client, FB_CHAT, 'chat', (c, model) =>
     c.chat.completions.create({
       model,
       messages: [

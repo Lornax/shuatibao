@@ -5,6 +5,7 @@ import { Box } from '../components/Box';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { Input, Textarea } from '../components/Input';
+import { DatePicker } from '../components/DatePicker';
 import { Layout } from '../components/Layout';
 
 const dailyHourChips: { label: string; hours: number }[] = [
@@ -111,7 +112,7 @@ export function ProfileCreate() {
 
         <div>
           <label className="font-cn font-bold text-sm block mb-1">考试日期</label>
-          <Input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
+          <DatePicker value={examDate} onChange={setExamDate} />
         </div>
 
         <div>

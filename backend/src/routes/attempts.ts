@@ -34,7 +34,10 @@ router.post('/questions/:qid/attempts', async (c) => {
   const parsed = submitSchema.safeParse(body);
   if (!parsed.success) return c.json({ error: 'invalid_body' }, 400);
 
-  const isCorrect = parsed.data.chosen === q.q.answer;
+  // 多选题 chosen="A,C" 需要排序后比对 (避免 "C,A" 跟 "A,C" 不匹配的 bug)
+  const norm = (s: string): string =>
+    s.includes(',') ? s.split(',').map((x) => x.trim()).filter(Boolean).sort().join(',') : s;
+  const isCorrect = norm(parsed.data.chosen) === norm(q.q.answer);
 
   const [row] = await db
     .insert(schema.attempts)
